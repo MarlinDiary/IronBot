@@ -26,10 +26,17 @@ fun SendButton(
     modifier: Modifier = Modifier,
     isLoading: Boolean = false,
     containerColor: Color = MaterialTheme.colorScheme.primary,
-    contentColor: Color = MaterialTheme.colorScheme.onPrimary
+    contentColor: Color = MaterialTheme.colorScheme.onPrimary,
+    onCancel: (() -> Unit)? = null
 ) {
     FilledIconButton(
-        onClick = onClick,
+        onClick = {
+            if (isLoading && onCancel != null) {
+                onCancel()
+            } else if (!isLoading) {
+                onClick()
+            }
+        },
         modifier = modifier.size(36.dp),
         shape = CircleShape,
         colors = IconButtonDefaults.filledIconButtonColors(
@@ -41,7 +48,7 @@ fun SendButton(
             painter = painterResource(
                 id = if (isLoading) R.drawable.square else R.drawable.arrow_up
             ),
-            contentDescription = if (isLoading) "Loading" else "Send",
+            contentDescription = if (isLoading) "Cancel" else "Send",
             modifier = Modifier.size(18.dp)
         )
     }
@@ -61,7 +68,8 @@ fun SendButtonLoadingPreview() {
     PlaygroundTheme {
         SendButton(
             onClick = {},
-            isLoading = true
+            isLoading = true,
+            onCancel = {}
         )
     }
 }

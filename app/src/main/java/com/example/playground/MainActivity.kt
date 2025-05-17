@@ -47,6 +47,8 @@ import com.example.playground.network.AIImageService
 import com.example.playground.ui.components.ChatBubble
 import com.example.playground.ui.components.TextField
 import com.example.playground.ui.theme.PlaygroundTheme
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import java.util.UUID
 
@@ -97,6 +99,11 @@ fun ChatScreen(modifier: Modifier = Modifier) {
     val coroutineScope = rememberCoroutineScope()
     val imageService = remember { AIImageService() }
     val listState = rememberLazyListState()
+    
+    // 保存当前生成图片的Job引用，以便取消
+    var currentGenerationJob by remember { mutableStateOf<Job?>(null) }
+    // 保存当前加载消息的引用，以便在取消时移除
+    var loadingMessage by remember { mutableStateOf<Message?>(null) }
     
     // 自动滚动到底部
     LaunchedEffect(messages.size) {
@@ -149,20 +156,21 @@ fun ChatScreen(modifier: Modifier = Modifier) {
                         messages.add(userMessage)
                         
                         // 添加一个加载中的AI消息
-                        val loadingMessage = Message(
+                        val newLoadingMessage = Message(
                             id = UUID.randomUUID().toString(),
                             content = "生成图片中...",
                             isUser = false,
                             isLoading = true
                         )
-                        messages.add(loadingMessage)
+                        messages.add(newLoadingMessage)
+                        loadingMessage = newLoadingMessage
                         
                         // 开始生成图片
                         isLoading = true
                         val prompt = text.trim()
                         text = "" // 重置输入框
                         
-                        coroutineScope.launch {
+                        currentGenerationJob = coroutineScope.launch {
                             Log.d("ChatScreen", "Generating image from prompt: $prompt")
                             
                             try {
@@ -170,7 +178,8 @@ fun ChatScreen(modifier: Modifier = Modifier) {
                                 Log.d("ChatScreen", "Generated URL: $generatedImageUrl")
                                 
                                 // 移除加载消息
-                                messages.remove(loadingMessage)
+                                loadingMessage?.let { messages.remove(it) }
+                                loadingMessage = null
                                 
                                 if (generatedImageUrl != null) {
                                     // 添加带图片的AI回复
@@ -194,9 +203,13 @@ fun ChatScreen(modifier: Modifier = Modifier) {
                                     Log.e("ChatScreen", "Failed to generate image - URL is null")
                                     Toast.makeText(context, "Failed to generate image", Toast.LENGTH_SHORT).show()
                                 }
+                            } catch (e: CancellationException) {
+                                // 处理取消操作 - 这里不需要做任何事情，因为UI已经在点击取消按钮时更新了
+                                Log.d("ChatScreen", "Image generation was cancelled")
                             } catch (e: Exception) {
                                 // 移除加载消息
-                                messages.remove(loadingMessage)
+                                loadingMessage?.let { messages.remove(it) }
+                                loadingMessage = null
                                 
                                 // 添加错误消息
                                 messages.add(
@@ -210,9 +223,34 @@ fun ChatScreen(modifier: Modifier = Modifier) {
                                 Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
                             } finally {
                                 isLoading = false
+                                currentGenerationJob = null
                             }
                         }
                     }
+                },
+                onCancel = {
+                    // 乐观更新UI
+                    // 1. 立即移除加载消息
+                    loadingMessage?.let { messages.remove(it) }
+                    
+                    // 2. 立即添加取消消息
+                    messages.add(
+                        Message(
+                            id = UUID.randomUUID().toString(),
+                            content = "图片生成已取消",
+                            isUser = false
+                        )
+                    )
+                    
+                    // 3. 立即更新加载状态
+                    isLoading = false
+                    
+                    // 4. 取消当前任务
+                    currentGenerationJob?.cancel()
+                    currentGenerationJob = null
+                    loadingMessage = null
+                    
+                    Log.d("ChatScreen", "Image generation cancelled by user (optimistic update)")
                 }
             )
         }

@@ -38,7 +38,8 @@ fun TextField(
     placeholderText: String = "Describe an image",
     textStyle: TextStyle = MaterialTheme.typography.bodyLarge,
     onSend: () -> Unit = {},
-    isLoading: Boolean = false
+    isLoading: Boolean = false,
+    onCancel: () -> Unit = {}
 ) {
     val isButtonActive = isLoading || value.isNotEmpty()
     
@@ -90,13 +91,14 @@ fun TextField(
                         innerTextField()
                     }
                     
-                    // 使用不同的颜色而不是透明度
+                    // 使用不同的颜色而不是透明度，并添加onCancel回调
                     SendButton(
-                        onClick = if (isButtonActive) onSend else { {} },
+                        onClick = if (isButtonActive && !isLoading) onSend else { {} },
                         modifier = Modifier.padding(start = 8.dp),
                         isLoading = isLoading,
                         containerColor = buttonContainerColor,
-                        contentColor = buttonContentColor
+                        contentColor = buttonContentColor,
+                        onCancel = onCancel
                     )
                 }
             }
@@ -142,7 +144,8 @@ fun TextFieldLoadingPreview() {
             onValueChange = { text = it },
             modifier = Modifier.padding(16.dp),
             onSend = {},
-            isLoading = true
+            isLoading = true,
+            onCancel = {}
         )
     }
 } 
