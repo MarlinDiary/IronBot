@@ -33,7 +33,8 @@ fun TextField(
     modifier: Modifier = Modifier,
     placeholderText: String = "Describe an image",
     textStyle: TextStyle = TextStyle.Default,
-    onSend: () -> Unit = {}
+    onSend: () -> Unit = {},
+    isLoading: Boolean = false
 ) {
     val borderColor = Color(0xFFE2E2E1)
     val backgroundColor = Color(0xFFFBFBFA)
@@ -70,12 +71,13 @@ fun TextField(
                     innerTextField()
                 }
                 
-                // 始终显示SendButton，但根据文本是否为空调整透明度和可点击状态
+                // 在加载状态下始终显示按钮，不透明度为1
                 SendButton(
-                    onClick = if (value.isNotEmpty()) onSend else { {} },
+                    onClick = if (isLoading || value.isNotEmpty()) onSend else { {} },
                     modifier = Modifier
                         .padding(start = 8.dp)
-                        .alpha(if (value.isEmpty()) 0.2f else 1f)
+                        .alpha(if (value.isEmpty() && !isLoading) 0.2f else 1f),
+                    isLoading = isLoading
                 )
             }
         }
@@ -106,6 +108,21 @@ fun TextFieldWithTextPreview() {
             onValueChange = { text = it },
             modifier = Modifier.padding(16.dp),
             onSend = {}
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun TextFieldLoadingPreview() {
+    PlaygroundTheme {
+        var text by remember { mutableStateOf("") }
+        TextField(
+            value = text,
+            onValueChange = { text = it },
+            modifier = Modifier.padding(16.dp),
+            onSend = {},
+            isLoading = true
         )
     }
 } 

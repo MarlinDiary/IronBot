@@ -20,7 +20,8 @@ import com.example.playground.ui.theme.PlaygroundTheme
 @Composable
 fun SendButton(
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isLoading: Boolean = false
 ) {
     Box(
         modifier = modifier
@@ -31,8 +32,10 @@ fun SendButton(
         contentAlignment = Alignment.Center
     ) {
         Icon(
-            painter = painterResource(id = R.drawable.arrow_up),
-            contentDescription = "Send",
+            painter = painterResource(
+                id = if (isLoading) R.drawable.square else R.drawable.arrow_up
+            ),
+            contentDescription = if (isLoading) "Loading" else "Send",
             tint = Color.White,
             modifier = Modifier.size(18.dp)
         )
@@ -44,5 +47,16 @@ fun SendButton(
 fun SendButtonPreview() {
     PlaygroundTheme {
         SendButton(onClick = {})
+    }
+}
+
+@Preview
+@Composable
+fun SendButtonLoadingPreview() {
+    PlaygroundTheme {
+        SendButton(
+            onClick = {},
+            isLoading = true
+        )
     }
 } 
