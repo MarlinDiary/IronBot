@@ -46,9 +46,12 @@ import kotlinx.coroutines.launch
 import android.view.MotionEvent
 import android.widget.Toast
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Download
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -64,6 +67,9 @@ fun ImageView(
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     var showContextMenu by remember { mutableStateOf(false) }
+    
+    // 新增：是否显示全屏图片查看器
+    var showFullScreenImage by remember { mutableStateOf(false) }
     
     // Emoji animation effect
     LaunchedEffect(isLoading) {
@@ -119,7 +125,10 @@ fun ImageView(
                                 .fillMaxWidth()
                                 .aspectRatio(1.33f)
                                 .combinedClickable(
-                                    onClick = { /* No action on single click */ },
+                                    onClick = { 
+                                        // 点击图片时显示全屏查看器
+                                        showFullScreenImage = true 
+                                    },
                                     onLongClick = { showContextMenu = true }
                                 )
                         )
@@ -160,6 +169,23 @@ fun ImageView(
                                         }
                                     }
                                 }
+                            )
+                        }
+                    }
+                    
+                    // 全屏图片查看器
+                    if (showFullScreenImage) {
+                        Dialog(
+                            onDismissRequest = { showFullScreenImage = false },
+                            properties = DialogProperties(
+                                dismissOnBackPress = true,
+                                dismissOnClickOutside = true,
+                                usePlatformDefaultWidth = false // 使对话框全屏
+                            )
+                        ) {
+                            FullScreenImageViewer(
+                                imageUrl = imageUrl,
+                                onDismiss = { showFullScreenImage = false }
                             )
                         }
                     }
