@@ -144,7 +144,7 @@ fun ChatScreen(modifier: Modifier = Modifier) {
                 value = text,
                 onValueChange = { text = it },
                 isLoading = isLoading,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                 onSend = {
                     if (text.isNotEmpty()) {
                         // 添加用户消息
@@ -158,7 +158,7 @@ fun ChatScreen(modifier: Modifier = Modifier) {
                         // 添加一个加载中的AI消息
                         val newLoadingMessage = Message(
                             id = UUID.randomUUID().toString(),
-                            content = "生成图片中...",
+                            content = "Generating image...",
                             isUser = false,
                             isLoading = true
                         )
@@ -186,7 +186,7 @@ fun ChatScreen(modifier: Modifier = Modifier) {
                                     messages.add(
                                         Message(
                                             id = UUID.randomUUID().toString(),
-                                            content = "这是根据你的描述生成的图片",
+                                            content = "Here is the image based on your description",
                                             isUser = false,
                                             imageUrl = generatedImageUrl
                                         )
@@ -196,7 +196,7 @@ fun ChatScreen(modifier: Modifier = Modifier) {
                                     messages.add(
                                         Message(
                                             id = UUID.randomUUID().toString(),
-                                            content = "抱歉，图片生成失败",
+                                            content = "Sorry, image generation failed",
                                             isUser = false
                                         )
                                     )
@@ -215,7 +215,7 @@ fun ChatScreen(modifier: Modifier = Modifier) {
                                 messages.add(
                                     Message(
                                         id = UUID.randomUUID().toString(),
-                                        content = "出错了: ${e.message}",
+                                        content = "Error: ${e.message}",
                                         isUser = false
                                     )
                                 )
@@ -237,7 +237,7 @@ fun ChatScreen(modifier: Modifier = Modifier) {
                     messages.add(
                         Message(
                             id = UUID.randomUUID().toString(),
-                            content = "图片生成已取消",
+                            content = "Image generation cancelled",
                             isUser = false
                         )
                     )
