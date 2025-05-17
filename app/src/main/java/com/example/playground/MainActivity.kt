@@ -165,7 +165,7 @@ fun ChatScreen(modifier: Modifier = Modifier) {
                 value = text,
                 onValueChange = { text = it },
                 isLoading = isLoading,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                modifier = Modifier.padding(horizontal = 16.dp).padding(top = 8.dp),
                 onSend = {
                     if (text.isNotEmpty()) {
                         // 添加用户消息
