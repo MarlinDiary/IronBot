@@ -46,6 +46,7 @@ import androidx.compose.ui.unit.dp
 import com.example.playground.model.Message
 import com.example.playground.network.AIImageService
 import com.example.playground.ui.components.ChatBubble
+import com.example.playground.ui.components.EmptyChat
 import com.example.playground.ui.components.TextField
 import com.example.playground.ui.theme.PlaygroundTheme
 import com.example.playground.utils.ImageDownloader
@@ -143,21 +144,31 @@ fun ChatScreen(modifier: Modifier = Modifier) {
     Column(
         modifier = modifier.fillMaxSize()
     ) {
-        // 消息列表 - 添加weight使其填充可用空间
-        LazyColumn(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth(),
-            state = listState,
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
-        ) {
-            items(messages, key = { it.id }) { message ->
-                ChatBubble(
-                    message = message.content,
-                    isUser = message.isUser,
-                    imageUrl = message.imageUrl,
-                    modifier = Modifier.padding(vertical = 4.dp)
-                )
+        // 消息列表区域 - 添加weight使其填充可用空间
+        if (messages.isEmpty()) {
+            // 显示空屏占位
+            EmptyChat(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+            )
+        } else {
+            // 显示消息列表
+            LazyColumn(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+                state = listState,
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+            ) {
+                items(messages, key = { it.id }) { message ->
+                    ChatBubble(
+                        message = message.content,
+                        isUser = message.isUser,
+                        imageUrl = message.imageUrl,
+                        modifier = Modifier.padding(vertical = 4.dp)
+                    )
+                }
             }
         }
         
