@@ -52,7 +52,7 @@ fun TextField(
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(percent = 50))
-            .border(2.dp, borderColor, RoundedCornerShape(percent = 50))
+            .border(1.dp, borderColor, RoundedCornerShape(percent = 50))
             .background(backgroundColor),
         decorationBox = { innerTextField ->
             Row(
