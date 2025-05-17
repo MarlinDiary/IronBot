@@ -10,6 +10,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -17,11 +20,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -33,8 +40,17 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.playground.R
 import com.example.playground.ui.theme.PlaygroundTheme
+import com.example.playground.utils.ImageDownloader
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import android.view.MotionEvent
+import android.widget.Toast
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Download
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ImageView(
     imageUrl: String?,
@@ -45,6 +61,9 @@ fun ImageView(
     val cornerRadius = MaterialTheme.shapes.medium
     val loadingEmojis = remember { listOf("🔍", "🖼️", "✨", "🎨", "🧩") }
     var currentEmojiIndex by remember { mutableIntStateOf(0) }
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+    var showContextMenu by remember { mutableStateOf(false) }
     
     // Emoji animation effect
     LaunchedEffect(isLoading) {
@@ -87,18 +106,63 @@ fun ImageView(
                     }
                 }
                 imageUrl != null -> {
-                    // Image loaded state
-                    AsyncImage(
-                        model = ImageRequest.Builder(LocalContext.current)
-                            .data(imageUrl)
-                            .crossfade(true)
-                            .build(),
-                        contentDescription = "Generated image",
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .aspectRatio(1.33f)
-                    )
+                    // Image loaded state with context menu
+                    Box {
+                        AsyncImage(
+                            model = ImageRequest.Builder(LocalContext.current)
+                                .data(imageUrl)
+                                .crossfade(true)
+                                .build(),
+                            contentDescription = "Generated image",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .aspectRatio(1.33f)
+                                .combinedClickable(
+                                    onClick = { /* No action on single click */ },
+                                    onLongClick = { showContextMenu = true }
+                                )
+                        )
+                        
+                        // Long press menu
+                        DropdownMenu(
+                            expanded = showContextMenu,
+                            onDismissRequest = { showContextMenu = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Download Image") },
+                                leadingIcon = { 
+                                    Icon(
+                                        imageVector = Icons.Outlined.Download,
+                                        contentDescription = "Download"
+                                    )
+                                },
+                                onClick = {
+                                    showContextMenu = false
+                                    
+                                    // Check permissions and download image
+                                    if (ImageDownloader.checkStoragePermission(context)) {
+                                        coroutineScope.launch {
+                                            ImageDownloader.downloadImage(context, imageUrl)
+                                        }
+                                    } else {
+                                        // Request permission if not granted
+                                        Toast.makeText(
+                                            context,
+                                            "Storage permission required to save images",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                        
+                                        // Try to request permission (if context is Activity)
+                                        val activity = context as? android.app.Activity
+                                        activity?.let {
+                                            ImageDownloader.requestStoragePermission(it)
+                                        }
+                                    }
+                                }
+                            )
+                        }
+                    }
                 }
                 else -> {
                     // Placeholder state

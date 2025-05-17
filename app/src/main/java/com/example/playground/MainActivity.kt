@@ -1,5 +1,6 @@
 package com.example.playground
 
+import android.content.pm.PackageManager
 import android.os.Bundle
 import android.util.Log
 import android.widget.Toast
@@ -47,18 +48,38 @@ import com.example.playground.network.AIImageService
 import com.example.playground.ui.components.ChatBubble
 import com.example.playground.ui.components.TextField
 import com.example.playground.ui.theme.PlaygroundTheme
+import com.example.playground.utils.ImageDownloader
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import java.util.UUID
 
 class MainActivity : ComponentActivity() {
+    
+    private val PERMISSION_REQUEST_CODE = 100
+    
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
             PlaygroundTheme {
                 ChatApp()
+            }
+        }
+    }
+    
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        
+        if (requestCode == PERMISSION_REQUEST_CODE) {
+            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                Toast.makeText(this, "Storage permission granted. You can now download images", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(this, "Storage permission denied. Cannot download images", Toast.LENGTH_SHORT).show()
             }
         }
     }
