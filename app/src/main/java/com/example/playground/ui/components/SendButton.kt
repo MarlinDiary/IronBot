@@ -5,7 +5,10 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -21,22 +24,24 @@ import com.example.playground.ui.theme.PlaygroundTheme
 fun SendButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    isLoading: Boolean = false
+    isLoading: Boolean = false,
+    containerColor: Color = MaterialTheme.colorScheme.primary,
+    contentColor: Color = MaterialTheme.colorScheme.onPrimary
 ) {
-    Box(
-        modifier = modifier
-            .size(36.dp)
-            .clip(CircleShape)
-            .background(Color.Black)
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center
+    FilledIconButton(
+        onClick = onClick,
+        modifier = modifier.size(36.dp),
+        shape = CircleShape,
+        colors = IconButtonDefaults.filledIconButtonColors(
+            containerColor = containerColor,
+            contentColor = contentColor
+        )
     ) {
         Icon(
             painter = painterResource(
                 id = if (isLoading) R.drawable.square else R.drawable.arrow_up
             ),
             contentDescription = if (isLoading) "Loading" else "Send",
-            tint = Color.White,
             modifier = Modifier.size(18.dp)
         )
     }
@@ -57,6 +62,18 @@ fun SendButtonLoadingPreview() {
         SendButton(
             onClick = {},
             isLoading = true
+        )
+    }
+}
+
+@Preview
+@Composable
+fun SendButtonDisabledPreview() {
+    PlaygroundTheme {
+        SendButton(
+            onClick = {},
+            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+            contentColor = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 } 
