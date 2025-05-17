@@ -133,6 +133,13 @@ fun ChatScreen(modifier: Modifier = Modifier) {
         }
     }
     
+    // 监听消息中的图片URL变化，确保图片加载后也滚动到底部
+    LaunchedEffect(messages.map { it.imageUrl }) {
+        if (messages.isNotEmpty()) {
+            listState.animateScrollToItem(messages.size - 1)
+        }
+    }
+    
     Column(
         modifier = modifier.fillMaxSize()
     ) {
