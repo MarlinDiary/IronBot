@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -16,9 +17,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.playground.ui.theme.PlaygroundTheme
@@ -38,8 +41,13 @@ fun TextField(
     
     BasicTextField(
         value = value,
-        onValueChange = onValueChange,
+        onValueChange = { newValue ->
+            // 过滤掉所有换行符
+            onValueChange(newValue.replace("\n", ""))
+        },
         textStyle = textStyle,
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(percent = 50))
@@ -62,12 +70,13 @@ fun TextField(
                     innerTextField()
                 }
                 
-                if (value.isNotEmpty()) {
-                    SendButton(
-                        onClick = onSend,
-                        modifier = Modifier.padding(start = 8.dp)
-                    )
-                }
+                // 始终显示SendButton，但根据文本是否为空调整透明度和可点击状态
+                SendButton(
+                    onClick = if (value.isNotEmpty()) onSend else { {} },
+                    modifier = Modifier
+                        .padding(start = 8.dp)
+                        .alpha(if (value.isEmpty()) 0.2f else 1f)
+                )
             }
         }
     )
