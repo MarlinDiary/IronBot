@@ -3,6 +3,7 @@ package com.example.playground.ui.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -13,6 +14,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -28,6 +30,7 @@ fun TextField(
     modifier: Modifier = Modifier,
     placeholderText: String = "Describe an image",
     textStyle: TextStyle = TextStyle.Default,
+    onSend: () -> Unit = {}
 ) {
     val borderColor = Color(0xFFE2E2E1)
     val backgroundColor = Color(0xFFFBFBFA)
@@ -41,17 +44,30 @@ fun TextField(
             .fillMaxWidth()
             .clip(RoundedCornerShape(percent = 50))
             .border(2.dp, borderColor, RoundedCornerShape(percent = 50))
-            .background(backgroundColor)
-            .padding(16.dp),
+            .background(backgroundColor),
         decorationBox = { innerTextField ->
-            Box {
-                if (value.isEmpty()) {
-                    Text(
-                        text = placeholderText,
-                        color = placeholderColor
+            Row(
+                modifier = Modifier.padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier.weight(1f)
+                ) {
+                    if (value.isEmpty()) {
+                        Text(
+                            text = placeholderText,
+                            color = placeholderColor
+                        )
+                    }
+                    innerTextField()
+                }
+                
+                if (value.isNotEmpty()) {
+                    SendButton(
+                        onClick = onSend,
+                        modifier = Modifier.padding(start = 8.dp)
                     )
                 }
-                innerTextField()
             }
         }
     )
@@ -65,7 +81,22 @@ fun TextFieldPreview() {
         TextField(
             value = text,
             onValueChange = { text = it },
-            modifier = Modifier.padding(16.dp)
+            modifier = Modifier.padding(16.dp),
+            onSend = {}
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun TextFieldWithTextPreview() {
+    PlaygroundTheme {
+        var text by remember { mutableStateOf("Sample text") }
+        TextField(
+            value = text,
+            onValueChange = { text = it },
+            modifier = Modifier.padding(16.dp),
+            onSend = {}
         )
     }
 } 

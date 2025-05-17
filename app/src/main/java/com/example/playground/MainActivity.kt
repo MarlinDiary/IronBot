@@ -1,6 +1,7 @@
 package com.example.playground
 
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -15,6 +16,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.playground.ui.components.TextField
@@ -37,6 +39,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun MainScreen(modifier: Modifier = Modifier) {
     var text by remember { mutableStateOf("") }
+    val context = LocalContext.current
     
     Column(
         modifier = modifier.padding(16.dp)
@@ -45,7 +48,13 @@ fun MainScreen(modifier: Modifier = Modifier) {
         TextField(
             value = text,
             onValueChange = { text = it },
-            modifier = Modifier.padding(top = 16.dp)
+            modifier = Modifier.padding(top = 16.dp),
+            onSend = {
+                // TODO: Generate image from text
+                Toast.makeText(context, "Generating image from: $text", Toast.LENGTH_SHORT).show()
+                // Reset text after sending
+                text = ""
+            }
         )
     }
 }
