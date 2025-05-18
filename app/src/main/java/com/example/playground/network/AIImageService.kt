@@ -44,7 +44,7 @@ class AIImageService {
                 Log.d(TAG, "Auth response: $response")
                 
                 val jsonObject = JSONObject(response)
-                val signature = jsonObject.optString("signature", null)
+                val signature = if (jsonObject.has("signature")) jsonObject.getString("signature") else null
                 Log.d(TAG, "Signature obtained: ${signature?.take(10)}...")
                 return@withContext signature
             } else {
@@ -133,13 +133,5 @@ class AIImageService {
                 return@withContext null
             }
         }
-    }
-    
-    /**
-     * Interface for handling image generation callbacks
-     */
-    interface ImageGenerationCallback {
-        fun onImageGenerated(imageUrl: String?)
-        fun onError(message: String)
     }
 } 

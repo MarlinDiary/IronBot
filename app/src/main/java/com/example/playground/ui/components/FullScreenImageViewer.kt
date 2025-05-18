@@ -35,10 +35,8 @@ import coil.request.ImageRequest
 import com.example.playground.utils.ImageDownloader
 import kotlinx.coroutines.launch
 import android.widget.Toast
-import android.app.Activity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.runtime.DisposableEffect
 import android.Manifest
 import android.os.Build
 import kotlin.math.abs
