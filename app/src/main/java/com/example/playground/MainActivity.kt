@@ -1,6 +1,8 @@
 package com.example.playground
 
+import android.Manifest
 import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.widget.Toast
@@ -69,7 +71,24 @@ class MainActivity : ComponentActivity() {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         
         if (requestCode == PERMISSION_REQUEST_CODE) {
-            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            var storagePermissionGranted = false
+            
+            // Check which permission was granted
+            permissions.forEachIndexed { index, permission ->
+                if (grantResults.getOrNull(index) == PackageManager.PERMISSION_GRANTED) {
+                    when (permission) {
+                        Manifest.permission.WRITE_EXTERNAL_STORAGE,
+                        Manifest.permission.READ_EXTERNAL_STORAGE,
+                        Manifest.permission.READ_MEDIA_IMAGES,
+                        Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED,
+                        Manifest.permission.MANAGE_EXTERNAL_STORAGE -> {
+                            storagePermissionGranted = true
+                        }
+                    }
+                }
+            }
+            
+            if (storagePermissionGranted) {
                 Toast.makeText(this, "Storage permission granted. You can now download images", Toast.LENGTH_SHORT).show()
             } else {
                 Toast.makeText(this, "Storage permission denied. Cannot download images", Toast.LENGTH_SHORT).show()

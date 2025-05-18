@@ -34,6 +34,13 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.playground.utils.ImageDownloader
 import kotlinx.coroutines.launch
+import android.widget.Toast
+import android.app.Activity
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.DisposableEffect
+import android.Manifest
+import android.os.Build
 import kotlin.math.abs
 
 @Composable
@@ -53,6 +60,25 @@ fun FullScreenImageViewer(
     
     // 背景颜色 - 使用Material 3的scrim颜色
     val backgroundColor = MaterialTheme.colorScheme.scrim.copy(alpha = 0.95f)
+    
+    // 使用Activity Result API处理权限请求
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            // 权限已授予，下载图片
+            coroutineScope.launch {
+                ImageDownloader.downloadImage(context, imageUrl)
+            }
+        } else {
+            // 权限被拒绝
+            Toast.makeText(
+                context,
+                "Storage permission is required to save images",
+                Toast.LENGTH_SHORT
+            ).show()
+        }
+    }
     
     Box(
         modifier = Modifier
@@ -116,16 +142,26 @@ fun FullScreenImageViewer(
             // 右上角保存按钮 - 使用Material 3风格
             IconButton(
                 onClick = {
-                    // 检查权限并下载图片，不显示Toast
+                    // 检查并请求权限
                     if (ImageDownloader.checkStoragePermission(context)) {
+                        // 已有权限，直接下载
                         coroutineScope.launch {
                             ImageDownloader.downloadImage(context, imageUrl)
                         }
                     } else {
-                        // 尝试请求权限（如果context是Activity）
-                        val activity = context as? android.app.Activity
-                        activity?.let {
-                            ImageDownloader.requestStoragePermission(it)
+                        // 根据API级别请求相应的权限
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            permissionLauncher.launch(Manifest.permission.READ_MEDIA_IMAGES)
+                        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                            // Android 11+, 使用Manifest.permission.MANAGE_EXTERNAL_STORAGE需要特殊处理
+                            // 这里我们只使用Activity Result API处理基本权限
+                            Toast.makeText(
+                                context,
+                                "Please grant storage permissions in settings",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        } else {
+                            permissionLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
                         }
                     }
                 },

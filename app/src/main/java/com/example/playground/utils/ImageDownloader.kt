@@ -32,19 +32,36 @@ object ImageDownloader {
      * Check storage permission
      */
     fun checkStoragePermission(context: Context): Boolean {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            ContextCompat.checkSelfPermission(
-                context,
-                Manifest.permission.READ_MEDIA_IMAGES
-            ) == PackageManager.PERMISSION_GRANTED
-        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            // Android 10+ doesn't require storage permission to save images to gallery
-            true
-        } else {
-            ContextCompat.checkSelfPermission(
-                context,
-                Manifest.permission.WRITE_EXTERNAL_STORAGE
-            ) == PackageManager.PERMISSION_GRANTED
+        return when {
+            Build.VERSION.SDK_INT >= 34 -> {
+                // Android 14+: Check for READ_MEDIA_VISUAL_USER_SELECTED permission
+                ContextCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED
+                ) == PackageManager.PERMISSION_GRANTED ||
+                ContextCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.READ_MEDIA_IMAGES
+                ) == PackageManager.PERMISSION_GRANTED
+            }
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU -> {
+                // Android 13: Check for READ_MEDIA_IMAGES permission
+                ContextCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.READ_MEDIA_IMAGES
+                ) == PackageManager.PERMISSION_GRANTED
+            }
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.R -> {
+                // Android 11-12: Doesn't require storage permission for MediaStore
+                true
+            }
+            else -> {
+                // Android 10 and below: Check for WRITE_EXTERNAL_STORAGE
+                ContextCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.WRITE_EXTERNAL_STORAGE
+                ) == PackageManager.PERMISSION_GRANTED
+            }
         }
     }
     
@@ -52,18 +69,34 @@ object ImageDownloader {
      * Request storage permission
      */
     fun requestStoragePermission(activity: Activity) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            ActivityCompat.requestPermissions(
-                activity,
-                arrayOf(Manifest.permission.READ_MEDIA_IMAGES),
-                PERMISSION_REQUEST_CODE
-            )
-        } else if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-            ActivityCompat.requestPermissions(
-                activity,
-                arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE),
-                PERMISSION_REQUEST_CODE
-            )
+        when {
+            Build.VERSION.SDK_INT >= 34 -> {
+                // Android 14+: Request READ_MEDIA_VISUAL_USER_SELECTED permission
+                ActivityCompat.requestPermissions(
+                    activity,
+                    arrayOf(
+                        Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED,
+                        Manifest.permission.READ_MEDIA_IMAGES
+                    ),
+                    PERMISSION_REQUEST_CODE
+                )
+            }
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU -> {
+                // Android 13: Request READ_MEDIA_IMAGES permission
+                ActivityCompat.requestPermissions(
+                    activity,
+                    arrayOf(Manifest.permission.READ_MEDIA_IMAGES),
+                    PERMISSION_REQUEST_CODE
+                )
+            }
+            Build.VERSION.SDK_INT < Build.VERSION_CODES.Q -> {
+                // Android 9 and below: Request WRITE_EXTERNAL_STORAGE
+                ActivityCompat.requestPermissions(
+                    activity,
+                    arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE),
+                    PERMISSION_REQUEST_CODE
+                )
+            }
         }
     }
     
