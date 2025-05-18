@@ -2,7 +2,6 @@ package com.example.playground
 
 import android.Manifest
 import android.content.pm.PackageManager
-import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.widget.Toast
@@ -51,7 +50,7 @@ import java.util.UUID
 
 class MainActivity : ComponentActivity() {
     
-    private val PERMISSION_REQUEST_CODE = 100
+    private val permissionRequestCode = 100
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -63,6 +62,8 @@ class MainActivity : ComponentActivity() {
         }
     }
     
+    @Deprecated("This method is deprecated. Use registerForActivityResult() instead")
+    @Suppress("DEPRECATION")
     override fun onRequestPermissionsResult(
         requestCode: Int,
         permissions: Array<out String>,
@@ -70,7 +71,7 @@ class MainActivity : ComponentActivity() {
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         
-        if (requestCode == PERMISSION_REQUEST_CODE) {
+        if (requestCode == permissionRequestCode) {
             var storagePermissionGranted = false
             
             // Check which permission was granted
@@ -253,7 +254,7 @@ fun ChatScreen(modifier: Modifier = Modifier) {
                                     Log.e("ChatScreen", "Failed to generate image - URL is null")
                                     Toast.makeText(context, "Failed to generate image", Toast.LENGTH_SHORT).show()
                                 }
-                            } catch (e: CancellationException) {
+                            } catch (_: CancellationException) {
                                 // 处理取消操作 - 这里不需要做任何事情，因为UI已经在点击取消按钮时更新了
                                 Log.d("ChatScreen", "Image generation was cancelled")
                             } catch (e: Exception) {
