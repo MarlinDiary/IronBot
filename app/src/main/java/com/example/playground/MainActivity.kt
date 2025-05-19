@@ -3,7 +3,6 @@ package com.example.playground
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Bundle
-import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -222,11 +221,8 @@ fun ChatScreen(modifier: Modifier = Modifier) {
                         text = "" // 重置输入框
                         
                         currentGenerationJob = coroutineScope.launch {
-                            Log.d("ChatScreen", "Generating image from prompt: $prompt")
-                            
                             try {
                                 val generatedImageUrl = imageService.generateImage(prompt)
-                                Log.d("ChatScreen", "Generated URL: $generatedImageUrl")
                                 
                                 // 移除加载消息
                                 loadingMessage?.let { messages.remove(it) }
@@ -251,12 +247,10 @@ fun ChatScreen(modifier: Modifier = Modifier) {
                                             isUser = false
                                         )
                                     )
-                                    Log.e("ChatScreen", "Failed to generate image - URL is null")
                                     Toast.makeText(context, "Failed to generate image", Toast.LENGTH_SHORT).show()
                                 }
                             } catch (_: CancellationException) {
                                 // 处理取消操作 - 这里不需要做任何事情，因为UI已经在点击取消按钮时更新了
-                                Log.d("ChatScreen", "Image generation was cancelled")
                             } catch (e: Exception) {
                                 // 移除加载消息
                                 loadingMessage?.let { messages.remove(it) }
@@ -270,7 +264,6 @@ fun ChatScreen(modifier: Modifier = Modifier) {
                                         isUser = false
                                     )
                                 )
-                                Log.e("ChatScreen", "Error generating image", e)
                                 Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
                             } finally {
                                 isLoading = false
@@ -300,8 +293,6 @@ fun ChatScreen(modifier: Modifier = Modifier) {
                     currentGenerationJob?.cancel()
                     currentGenerationJob = null
                     loadingMessage = null
-                    
-                    Log.d("ChatScreen", "Image generation cancelled by user (optimistic update)")
                 }
             )
         }

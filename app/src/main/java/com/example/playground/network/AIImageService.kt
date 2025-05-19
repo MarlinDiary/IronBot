@@ -1,6 +1,5 @@
 package com.example.playground.network
 
-import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
@@ -26,7 +25,6 @@ class AIImageService {
      */
     private suspend fun getSignature(): String? = withContext(Dispatchers.IO) {
         try {
-            Log.d(TAG, "Getting signature from: $AUTH_ENDPOINT")
             val url = URL(AUTH_ENDPOINT)
             val connection = url.openConnection() as HttpURLConnection
             connection.requestMethod = "POST"
@@ -34,26 +32,19 @@ class AIImageService {
             connection.connectTimeout = TimeUnit.SECONDS.toMillis(10).toInt()
             connection.readTimeout = TimeUnit.SECONDS.toMillis(10).toInt()
             
-            Log.d(TAG, "Opening connection to auth endpoint...")
-            
             val responseCode = connection.responseCode
-            Log.d(TAG, "Auth response code: $responseCode")
             
             if (responseCode == HttpURLConnection.HTTP_OK) {
                 val response = connection.inputStream.bufferedReader().use { it.readText() }
-                Log.d(TAG, "Auth response: $response")
                 
                 val jsonObject = JSONObject(response)
                 val signature = if (jsonObject.has("signature")) jsonObject.getString("signature") else null
-                Log.d(TAG, "Signature obtained: ${signature?.take(10)}...")
                 return@withContext signature
             } else {
-                val errorResponse = connection.errorStream?.bufferedReader()?.use { it.readText() } ?: "No error response"
-                Log.e(TAG, "Auth request failed with response code: $responseCode, Error: $errorResponse")
+                connection.errorStream?.bufferedReader()?.use { it.readText() }
                 return@withContext null
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error during authentication", e)
             return@withContext null
         }
     }
@@ -65,17 +56,14 @@ class AIImageService {
      */
     suspend fun generateImage(prompt: String): String? {
         // First get a signature
-        Log.d(TAG, "Starting image generation for prompt: $prompt")
         val signature = getSignature()
         
         if (signature == null) {
-            Log.e(TAG, "Failed to get signature, aborting image generation")
             return null
         }
         
         return withContext(Dispatchers.IO) {
             try {
-                Log.d(TAG, "Calling generate image endpoint with signature")
                 val url = URL(GENERATE_IMAGE_ENDPOINT)
                 val connection = url.openConnection() as HttpURLConnection
                 connection.requestMethod = "POST"
@@ -91,23 +79,18 @@ class AIImageService {
                     put("prompt", prompt)
                 }.toString()
                 
-                Log.d(TAG, "Request body: $requestBody")
-                
                 // Write request body
                 OutputStreamWriter(connection.outputStream).use { it.write(requestBody) }
                 
                 val responseCode = connection.responseCode
-                Log.d(TAG, "Generate image response code: $responseCode")
                 
                 if (responseCode == HttpURLConnection.HTTP_OK) {
                     val responseText = connection.inputStream.bufferedReader().use { it.readText() }
-                    Log.d(TAG, "Generate image raw response: $responseText")
                     
                     // 关键修复：移除JSON响应中的引号
                     // 服务器返回的是JSON字符串，例如"images/path.jpg"
                     // 我们需要移除引号以获取实际路径
                     val cleanPath = responseText.trim().removeSurrounding("\"")
-                    Log.d(TAG, "Cleaned path: $cleanPath")
                     
                     // Construct the full image URL
                     val fullImageUrl = if (cleanPath.startsWith("http")) {
@@ -121,15 +104,12 @@ class AIImageService {
                         "$BASE_URL/$cleanPath"
                     }
                     
-                    Log.d(TAG, "Constructed image URL: $fullImageUrl")
                     return@withContext fullImageUrl
                 } else {
-                    val errorResponse = connection.errorStream?.bufferedReader()?.use { it.readText() } ?: "No error response"
-                    Log.e(TAG, "Image generation failed with response code: $responseCode, Error: $errorResponse")
+                    connection.errorStream?.bufferedReader()?.use { it.readText() }
                     return@withContext null
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "Error during image generation", e)
                 return@withContext null
             }
         }

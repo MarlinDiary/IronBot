@@ -10,7 +10,6 @@ import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
-import android.util.Log
 import android.widget.Toast
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -116,7 +115,6 @@ object ImageDownloader {
                 }
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error downloading image", e)
             withContext(Dispatchers.Main) {
                 Toast.makeText(context, "Failed to download image: ${e.message}", Toast.LENGTH_SHORT).show()
             }
