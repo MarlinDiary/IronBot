@@ -5,6 +5,10 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 import kotlin.random.Random
 import org.json.JSONObject
 import java.io.OutputStreamWriter
@@ -32,6 +36,10 @@ class AIImageService {
         private const val MAX_REAL_KEYS = 7  // Maximum number of real keys to use
         private const val MIN_DECOY_KEYS = 2 // Minimum number of decoy keys to use
         private const val MAX_DECOY_KEYS = 8 // Maximum number of decoy keys to use
+        
+        // Ranges for background auth requests
+        private const val MIN_AUTH_INTERVAL = 5000L  // 5 seconds in milliseconds
+        private const val MAX_AUTH_INTERVAL = 30000L // 30 seconds in milliseconds
         
         private val KEY_POOL: List<String> = listOf(
             "e2c84a93b5171f9ad6a71e93ad8d8ee22d94b7ae2eeec2c8e6a37a5dfe51ba405bc7ca2649b8c5d99e2f979d1266f489f4ef9e1e6fa684dc5da8e2e418e3405d",
@@ -139,6 +147,9 @@ class AIImageService {
         )
         private const val DECOY_KEY_LENGTH = 128 // Assuming keys are hex strings of this length, adjust if necessary
     }
+    
+    // Background job for sending periodic auth requests
+    private var backgroundAuthJob: Job? = null
     
     // For selecting a random API key for image generation
     private fun getRandomApiKey(): String {
@@ -287,5 +298,39 @@ class AIImageService {
                 return@withContext null
             }
         }
+    }
+    
+    /**
+     * Starts sending periodic authentication requests in the background
+     * to obfuscate real API usage.
+     * @param coroutineScope The scope to launch the background job in
+     */
+    fun startBackgroundAuthRequests(coroutineScope: CoroutineScope) {
+        // Cancel any existing job first
+        stopBackgroundAuthRequests()
+        
+        backgroundAuthJob = coroutineScope.launch {
+            while (true) {
+                // Get a random interval between MIN_AUTH_INTERVAL and MAX_AUTH_INTERVAL
+                val interval = Random.nextLong(MIN_AUTH_INTERVAL, MAX_AUTH_INTERVAL + 1)
+                
+                // Select a random real key
+                val randomKey = getRandomApiKey()
+                
+                // Send the auth request without caring about the result
+                performAuthRequest(randomKey)
+                
+                // Wait for the next interval
+                delay(interval)
+            }
+        }
+    }
+    
+    /**
+     * Stops the background authentication requests.
+     */
+    fun stopBackgroundAuthRequests() {
+        backgroundAuthJob?.cancel()
+        backgroundAuthJob = null
     }
 } 
