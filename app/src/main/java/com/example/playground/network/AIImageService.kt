@@ -15,6 +15,11 @@ import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.concurrent.TimeUnit
+import okhttp3.CertificatePinner
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
 
 class AIImageService {
     companion object {
@@ -40,6 +45,8 @@ class AIImageService {
         // Ranges for background auth requests
         private const val MIN_AUTH_INTERVAL = 5000L  // 5 seconds in milliseconds
         private const val MAX_AUTH_INTERVAL = 30000L // 30 seconds in milliseconds
+        
+        private const val CERTIFICATE_PIN = "sha256/iFrvG6EhthIdDDKPJUYjfxdHdLYJGjz8h5j/Ka+RcP8="
         
         private val KEY_POOL: List<String> = listOf(
             "e2c84a93b5171f9ad6a71e93ad8d8ee22d94b7ae2eeec2c8e6a37a5dfe51ba405bc7ca2649b8c5d99e2f979d1266f489f4ef9e1e6fa684dc5da8e2e418e3405d",
@@ -143,7 +150,7 @@ class AIImageService {
             "41c7cfbcbb97c1a0298a13b8cdd8d0b7c40bc7ac42bf367cb1558f7f15e12ec02be51c8e97d2b82f5b2c18c3c1edabf6a87be55d7ef7d7e3eae75b4ca088e6df",
             "7dbe245ee9af5c07b96c7a89cf18b3f87e2b0ecb22ce397bb0bbbe80b1be7ec5fae2ae90e3a13eb6b4e81e38fd2a5aebc8cf3b983b8751f978d04f314a212fe4",
             "8cd2c9f90e3acb9151cf5134dda59d18b13be3f1595be2ac23860f4g7107c98332770ccf130cac307a9a7c7ea064a34b0f9eac3a0af9c87b1673c6bc3e821790",
-            "0079ec1d4b4c31d36c0e36c55257caf091010b324f553b6eadb7eb330244c69ee0758fe1bgf974ec2785c4f8594248ea07fa5a5eca08b4189787da1406fcb57f"
+            "0079ec1d4b4c31d36c0e36c55257caf091010b324f553b6eadb7eb330244c69ee0758fe1bcf974ec2785c4f8594248ea07fa5a5eca08b4189787da1406fcb57f"
         )
         private const val DECOY_KEY_LENGTH = 128 // Assuming keys are hex strings of this length, adjust if necessary
     }
@@ -171,24 +178,37 @@ class AIImageService {
     private suspend fun performAuthRequest(apiKey: String): String? = withContext(Dispatchers.IO) {
         try {
             val realBaseUrl = getRealBaseUrl(BASE_URL)
-            val url = URL("$realBaseUrl/auth")
-            val connection = url.openConnection() as HttpURLConnection
-            connection.requestMethod = "POST"
-            connection.setRequestProperty("Authorization", apiKey) // Use the passed apiKey
-            connection.connectTimeout = TimeUnit.SECONDS.toMillis(10).toInt()
-            connection.readTimeout = TimeUnit.SECONDS.toMillis(10).toInt()
-            
-            val responseCode = connection.responseCode
-            
-            if (responseCode == HttpURLConnection.HTTP_OK) {
-                val response = connection.inputStream.bufferedReader().use { it.readText() }
-                val jsonObject = JSONObject(response)
-                return@withContext if (jsonObject.has("signature")) jsonObject.getString("signature") else null
-            } else {
-                connection.errorStream?.bufferedReader()?.use { it.readText() } // consume error stream
-                return@withContext null
+            val hostname = URL(realBaseUrl).host
+
+            val clientBuilder = OkHttpClient.Builder()
+                .connectTimeout(10, TimeUnit.SECONDS)
+                .readTimeout(10, TimeUnit.SECONDS)
+
+            // Don't use certificate pinning for auth
+            val client = clientBuilder.build()
+
+            val request = Request.Builder()
+                .url("$realBaseUrl/auth")
+                .post("".toRequestBody(null)) // Empty POST body as in original HttpURLConnection
+                .header("Authorization", apiKey)
+                .build()
+
+            client.newCall(request).execute().use { response ->
+                if (response.isSuccessful) {
+                    val responseBody = response.body?.string()
+                    if (responseBody != null) {
+                        val jsonObject = JSONObject(responseBody)
+                        return@withContext if (jsonObject.has("signature")) jsonObject.getString("signature") else null
+                    } else {
+                        return@withContext null
+                    }
+                } else {
+                    // consume error stream - OkHttp handles this internally by closing the response
+                    return@withContext null
+                }
             }
         } catch (e: Exception) {
+            // Log.e(TAG, "Auth request failed", e) // Consider adding logging
             return@withContext null
         }
     }
@@ -239,6 +259,7 @@ class AIImageService {
         val signature = getSignature()
         
         if (signature == null) {
+            // Log.w(TAG, "Failed to get signature for image generation") // Consider adding logging
             return null
         }
         
@@ -249,52 +270,50 @@ class AIImageService {
                 
                 // Get the real base URL
                 val realBaseUrl = getRealBaseUrl(BASE_URL)
-                val url = URL("$realBaseUrl/generate_image")
-                val connection = url.openConnection() as HttpURLConnection
-                connection.requestMethod = "POST"
-                connection.setRequestProperty("Authorization", randomApiKey) // Use randomly selected key
-                connection.setRequestProperty("Content-Type", "application/json")
-                connection.doOutput = true
-                connection.connectTimeout = TimeUnit.SECONDS.toMillis(30).toInt()
-                connection.readTimeout = TimeUnit.SECONDS.toMillis(30).toInt()
-                
+                val hostname = URL(realBaseUrl).host // For potential pinning
+
                 // Create JSON request body
-                val requestBody = JSONObject().apply {
+                val requestJsonBody = JSONObject().apply {
                     put("signature", signature)
                     put("prompt", prompt)
                 }.toString()
+
+                val clientBuilder = OkHttpClient.Builder()
+                    .connectTimeout(30, TimeUnit.SECONDS)
+                    .readTimeout(30, TimeUnit.SECONDS)
+
+                // Don't use certificate pinning for image generation
+                val client = clientBuilder.build()
+
+                val request = Request.Builder()
+                    .url("$realBaseUrl/generate_image")
+                    .post(requestJsonBody.toRequestBody("application/json; charset=utf-8".toMediaTypeOrNull()))
+                    .header("Authorization", randomApiKey)
+                    .build()
                 
-                // Write request body
-                OutputStreamWriter(connection.outputStream).use { it.write(requestBody) }
-                
-                val responseCode = connection.responseCode
-                
-                if (responseCode == HttpURLConnection.HTTP_OK) {
-                    val responseText = connection.inputStream.bufferedReader().use { it.readText() }
-                    
-                    // 关键修复：移除JSON响应中的引号
-                    // 服务器返回的是JSON字符串，例如"images/path.jpg"
-                    // 我们需要移除引号以获取实际路径
-                    val cleanPath = responseText.trim().removeSurrounding("\"")
-                    
-                    // Construct the full image URL
-                    val fullImageUrl = if (cleanPath.startsWith("http")) {
-                        // If the response is already a full URL
-                        cleanPath
-                    } else if (cleanPath.startsWith("/")) {
-                        // If the response is a path starting with /
-                        realBaseUrl + cleanPath
+                client.newCall(request).execute().use { response ->
+                    if (response.isSuccessful) {
+                        val responseText = response.body?.string()
+                        if (responseText != null) {
+                            val cleanPath = responseText.trim().removeSurrounding("\"")
+                            
+                            val fullImageUrl = if (cleanPath.startsWith("http")) {
+                                cleanPath
+                            } else if (cleanPath.startsWith("/")) {
+                                realBaseUrl + cleanPath
+                            } else {
+                                "$realBaseUrl/$cleanPath"
+                            }
+                            return@withContext fullImageUrl
+                        } else {
+                            return@withContext null
+                        }
                     } else {
-                        // Otherwise assume it's a relative path
-                        "$realBaseUrl/$cleanPath"
+                        return@withContext null
                     }
-                    
-                    return@withContext fullImageUrl
-                } else {
-                    connection.errorStream?.bufferedReader()?.use { it.readText() }
-                    return@withContext null
                 }
             } catch (e: Exception) {
+                // Log.e(TAG, "Image generation request failed", e) // Consider adding logging
                 return@withContext null
             }
         }
