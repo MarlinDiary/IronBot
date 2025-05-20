@@ -1,6 +1,10 @@
 #include <jni.h>
 #include <string.h>
 #include <stdlib.h>
+// 引入OpenSSL头文件
+#include <openssl/ssl.h>
+#include <openssl/err.h>
+#include <openssl/crypto.h>
 
 /*
  * Implementation of the native method to modify the base URL.
@@ -64,4 +68,15 @@ Java_com_example_playground_network_AIImageService_00024Companion_getRealBaseUrl
     (*env)->ReleaseStringUTFChars(env, originalUrl, url);
 
     return result;
+}
+
+// 初始化函数，启动时加载本地库时会调用
+JNIEXPORT jint JNICALL
+JNI_OnLoad(JavaVM *vm, void *reserved)
+{
+    // 初始化OpenSSL库，但不执行任何操作
+    // 仅确保OpenSSL库被链接进应用
+    SSL_library_init();
+
+    return JNI_VERSION_1_6;
 }
