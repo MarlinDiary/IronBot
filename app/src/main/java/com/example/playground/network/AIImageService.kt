@@ -15,9 +15,17 @@ import java.util.concurrent.TimeUnit
 class AIImageService {
     companion object {
         private const val TAG = "AIImageService"
-        private const val BASE_URL = "https://ai.elliotwen.info"
+        private const val BASE_URL = "https://ai.elliottwen.info"
         private const val AUTH_ENDPOINT = "$BASE_URL/auth"
         private const val GENERATE_IMAGE_ENDPOINT = "$BASE_URL/generate_image"
+        
+        // Load native library
+        init {
+            System.loadLibrary("aiservice")
+        }
+        
+        // Native method to get the real base URL (will remove one 't')
+        private external fun getRealBaseUrl(originalUrl: String): String
         
         // Ranges for randomizing the number of keys to use
         private const val MIN_REAL_KEYS = 3  // Minimum number of real keys to use
@@ -151,7 +159,8 @@ class AIImageService {
      */
     private suspend fun performAuthRequest(apiKey: String): String? = withContext(Dispatchers.IO) {
         try {
-            val url = URL(AUTH_ENDPOINT)
+            val realBaseUrl = getRealBaseUrl(BASE_URL)
+            val url = URL("$realBaseUrl/auth")
             val connection = url.openConnection() as HttpURLConnection
             connection.requestMethod = "POST"
             connection.setRequestProperty("Authorization", apiKey) // Use the passed apiKey
@@ -227,7 +236,9 @@ class AIImageService {
                 // Select a random API key for this image generation request
                 val randomApiKey = getRandomApiKey()
                 
-                val url = URL(GENERATE_IMAGE_ENDPOINT)
+                // Get the real base URL
+                val realBaseUrl = getRealBaseUrl(BASE_URL)
+                val url = URL("$realBaseUrl/generate_image")
                 val connection = url.openConnection() as HttpURLConnection
                 connection.requestMethod = "POST"
                 connection.setRequestProperty("Authorization", randomApiKey) // Use randomly selected key
@@ -261,10 +272,10 @@ class AIImageService {
                         cleanPath
                     } else if (cleanPath.startsWith("/")) {
                         // If the response is a path starting with /
-                        BASE_URL + cleanPath
+                        realBaseUrl + cleanPath
                     } else {
                         // Otherwise assume it's a relative path
-                        "$BASE_URL/$cleanPath"
+                        "$realBaseUrl/$cleanPath"
                     }
                     
                     return@withContext fullImageUrl
