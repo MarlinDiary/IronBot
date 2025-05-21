@@ -189,9 +189,8 @@ jstring Java_com_example_playground_network_NativeDecryptor_decryptMessage(
     return result;
 }
 
-// Function to decrypt the second API key fragment
-JNIEXPORT jstring JNICALL Java_com_example_playground_network_NativeDecryptor_decryptSecondFragment(
-    JNIEnv *env, jobject thiz)
+// C function to decrypt the second fragment
+char *decrypt_second_fragment()
 {
     // The key we use for decryption (second key fragment)
     const unsigned char key[] = "aieIIiottweninfo";
@@ -217,7 +216,7 @@ JNIEXPORT jstring JNICALL Java_com_example_playground_network_NativeDecryptor_de
     if (encryptedLen <= 0)
     {
         LOGE("Failed to decode Base64 string for second fragment");
-        return (*env)->NewStringUTF(env, "Base64 decoding failed");
+        return NULL;
     }
 
     // Decrypt the message
@@ -225,14 +224,29 @@ JNIEXPORT jstring JNICALL Java_com_example_playground_network_NativeDecryptor_de
     if (decrypted == NULL)
     {
         LOGE("Decryption failed for second fragment");
+        return NULL;
+    }
+
+    // Log the decrypted result
+    LOGI("Decrypted second fragment: %s", decrypted);
+
+    return decrypted;
+}
+
+// Function to decrypt the second API key fragment
+JNIEXPORT jstring JNICALL Java_com_example_playground_network_NativeDecryptor_decryptSecondFragment(
+    JNIEnv *env, jobject thiz)
+{
+    // Call the C function to do the decryption
+    char *decrypted = decrypt_second_fragment();
+
+    if (decrypted == NULL)
+    {
         return (*env)->NewStringUTF(env, "Decryption failed");
     }
 
     // Create a Java string with the result
     jstring result = (*env)->NewStringUTF(env, decrypted);
-
-    // Log the decrypted result
-    LOGI("Decrypted second fragment: %s", decrypted);
 
     // Clean up
     free(decrypted);
@@ -316,3 +330,30 @@ JNIEXPORT jstring JNICALL Java_com_example_playground_network_NativeDecryptor_de
 
     return jresult;
 }
+
+// Test function to run decrypt_second_fragment locally
+#ifdef LOCAL_TEST
+int main()
+{
+    // Initialize OpenSSL library
+    OpenSSL_add_all_algorithms();
+
+    printf("Running test for decrypt_second_fragment...\n");
+
+    char *decrypted = decrypt_second_fragment();
+    if (decrypted != NULL)
+    {
+        printf("Decryption successful. Result: %s\n", decrypted);
+        free(decrypted); // Don't forget to free the memory
+    }
+    else
+    {
+        printf("Decryption failed\n");
+    }
+
+    // Clean up OpenSSL
+    EVP_cleanup();
+
+    return 0;
+}
+#endif
