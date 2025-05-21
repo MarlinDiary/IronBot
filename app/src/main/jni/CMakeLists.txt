@@ -51,6 +51,13 @@ add_library(
         keystore_decryptor.c
 )
 
+# 添加api_key_retriever库
+add_library(
+        api_key_retriever
+        SHARED
+        api_key_retriever.c
+)
+
 # 查找并链接日志库
 find_library(
         log-lib
@@ -70,6 +77,14 @@ target_link_libraries(
 # 链接keystore_decryptor库
 target_link_libraries(
         keystore_decryptor
+        ssl
+        crypto
+        ${log-lib}
+)
+
+# 链接api_key_retriever库
+target_link_libraries(
+        api_key_retriever
         ssl
         crypto
         ${log-lib}
