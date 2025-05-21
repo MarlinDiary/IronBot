@@ -246,3 +246,80 @@ JNIEXPORT jstring JNICALL Java_com_example_playground_network_NativeDecryptor_de
 
     return result;
 }
+
+// Function to decrypt the fifth API key fragment using triple XOR
+JNIEXPORT jstring JNICALL Java_com_example_playground_network_NativeDecryptor_decryptFifthFragment(
+    JNIEnv *env, jobject thiz)
+{
+    LOGI("Decrypting fifth API key fragment using triple XOR");
+
+    // The encrypted data (in hex format)
+    const char *encrypted_hex = "545C03585254045D520C5306070D565800535B565059060405075457000050535B025D0B5106015E";
+
+    // The three keys for decryption
+    const char *key1 = "4a17f315edc7aa28b1938eaf32d569da85ce14ab"; // First key
+    const char *key2 = "f6c8d74b78bd12c5a14df0b4dff7a79b271cc215"; // Second key
+    const char *key3 = "b35fe102c4da1fb12e749830d5cbe79a4494f2e0"; // Third key
+
+    // Calculate the length of the encrypted data
+    size_t encrypted_len = strlen(encrypted_hex) / 2;
+
+    // Allocate memory for the binary encrypted data
+    unsigned char *encrypted_data = (unsigned char *)malloc(encrypted_len);
+    if (!encrypted_data)
+    {
+        LOGE("Memory allocation failed for encrypted data");
+        return NULL;
+    }
+
+    // Convert hex string to binary
+    for (size_t i = 0; i < encrypted_len; i++)
+    {
+        sscanf(&encrypted_hex[i * 2], "%2hhx", &encrypted_data[i]);
+    }
+
+    // Allocate memory for the decryption result
+    unsigned char *result = (unsigned char *)malloc(encrypted_len + 1);
+    if (!result)
+    {
+        LOGE("Memory allocation failed for result buffer");
+        free(encrypted_data);
+        return NULL;
+    }
+
+    // Copy encrypted data to result buffer for in-place decryption
+    memcpy(result, encrypted_data, encrypted_len);
+
+    // Triple XOR decryption (reverse order of encryption)
+    // First, XOR with key3
+    for (size_t i = 0; i < encrypted_len; i++)
+    {
+        result[i] ^= key3[i % strlen(key3)];
+    }
+
+    // Second, XOR with key2
+    for (size_t i = 0; i < encrypted_len; i++)
+    {
+        result[i] ^= key2[i % strlen(key2)];
+    }
+
+    // Third, XOR with key1
+    for (size_t i = 0; i < encrypted_len; i++)
+    {
+        result[i] ^= key1[i % strlen(key1)];
+    }
+
+    // Null-terminate the result
+    result[encrypted_len] = '\0';
+
+    LOGI("Decrypted fifth fragment: %s", result);
+
+    // Convert binary result to Java string
+    jstring jresult = (*env)->NewStringUTF(env, (char *)result);
+
+    // Clean up
+    free(encrypted_data);
+    free(result);
+
+    return jresult;
+}
