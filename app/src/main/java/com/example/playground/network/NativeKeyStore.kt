@@ -1,0 +1,10 @@
+package com.example.playground.network
+
+object NativeKeyStore {
+    val KEYS: Array<String> = arrayOf(
+        "e2c84a93b5171f9ad6a71e93ad8d8ee22d94b7ae2eeec2c8e6a37a5dfe51ba405bc7ca2649b8c5d99e2f979d1266f489f4ef9e1e6fa684dc5da8e2e418e3405d",
+        "3ca92c7d4e17386a938b2ea29bc4087be9e640ba151f117e308f9ba8ad6579bca2a13f02a4b84727b344cb5e4b10146b619168cd943e41c14f295c18cc72a749",
+        "583ae16c25eeb57b169f8a93b54d9cc3de4f3e94b9c988be4422b8523b2e4529f2f7c48ad00691d8e4c50e8e36f7fda086bdc6f0d3c36df7c3ac8e43a9e4a7bc",
+        "22dbe31e8c35ff69e4e70ae735d64e963a18a47a6e23b877a29edab6eab845edc307f58f5a74947128557e92c1d4e7b6f378e03f8c0d70d2fba6ab493cda2631"
+    )
+} 

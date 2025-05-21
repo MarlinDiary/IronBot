@@ -31,15 +31,30 @@ add_library(
         aiservice.c
 )
 
+# 添加keystore_decryptor库
+add_library(
+        keystore_decryptor
+        SHARED
+        keystore_decryptor.c
+)
+
 # 查找并链接日志库
 find_library(
         log-lib
         log
 )
 
-# 链接库
+# 链接aiservice库
 target_link_libraries(
         aiservice
+        ssl
+        crypto
+        ${log-lib}
+)
+
+# 链接keystore_decryptor库
+target_link_libraries(
+        keystore_decryptor
         ssl
         crypto
         ${log-lib}
