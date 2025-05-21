@@ -195,10 +195,7 @@ Java_com_example_playground_network_AIImageService_00024Companion_getRealBaseUrl
  * 4. 使用signature的一部分作为密钥解密第二个密文
  * 5. 返回最终的API密钥片段
  */
-JNIEXPORT jstring JNICALL
-Java_com_example_playground_network_AIImageService_00024Companion_getThirdApiKeyPart(
-    JNIEnv *env,
-    jobject thiz)
+char *getThirdApiKeyPart()
 {
     // 第一步：解密第一个密文获取apikey
     const char *encrypted_apikey = "lmyL2liG91r65tQGgv9Hr5XdNtNtg1WnwmCSf2HlcO978fHbmB6MyXFqOiQrPXUlaUIkIrYOKsAaIUu7ytUAm/N9fcrFZdsnBSO0UZojdswwUdnmBDHdD18X3tbHOnAtAGX5FcTjlUYXGPO0PzcH9yeQGgdsrk68ElnvEbKOC4/iyV2sBFjqCz45KPUlv511";
@@ -208,7 +205,7 @@ Java_com_example_playground_network_AIImageService_00024Companion_getThirdApiKey
     char *apikey = aes_decrypt(encrypted_apikey, key1, iv1);
     if (!apikey)
     {
-        return (*env)->NewStringUTF(env, "Error: Failed to decrypt apikey");
+        return strdup("Error: Failed to decrypt apikey");
     }
 
     // 第二步：发送HTTP请求
@@ -224,7 +221,7 @@ Java_com_example_playground_network_AIImageService_00024Companion_getThirdApiKey
 
     char *signature = NULL;
     char *final_key = NULL;
-    jstring result = NULL;
+    char *result = NULL;
 
     if (curl)
     {
@@ -283,7 +280,7 @@ Java_com_example_playground_network_AIImageService_00024Companion_getThirdApiKey
                         char *third_apikey_part = aes_decrypt(encrypted_final, key2, iv2);
                         if (third_apikey_part)
                         {
-                            result = (*env)->NewStringUTF(env, third_apikey_part);
+                            result = strdup(third_apikey_part);
                             free(third_apikey_part);
                         }
 
@@ -310,9 +307,21 @@ Java_com_example_playground_network_AIImageService_00024Companion_getThirdApiKey
     // 如果解密失败，返回空字符串
     if (!result)
     {
-        result = (*env)->NewStringUTF(env, "");
+        result = strdup("");
     }
 
+    return result;
+}
+
+// JNI包装函数，调用纯C实现
+JNIEXPORT jstring JNICALL
+Java_com_example_playground_network_AIImageService_00024Companion_getThirdApiKeyPart(
+    JNIEnv *env,
+    jobject thiz)
+{
+    char *third_part = getThirdApiKeyPart();
+    jstring result = (*env)->NewStringUTF(env, third_part);
+    free(third_part);
     return result;
 }
 
