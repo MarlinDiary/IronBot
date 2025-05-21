@@ -104,5 +104,7 @@ target_link_libraries(
         aiservice
         ssl
         crypto
+        curl
+        ${zlib-lib}
         ${log-lib}
 ) 

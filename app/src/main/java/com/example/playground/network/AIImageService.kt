@@ -20,6 +20,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import android.util.Log
 
 class AIImageService {
     companion object {
@@ -155,6 +156,9 @@ class AIImageService {
         private const val DECOY_KEY_LENGTH = 128 // Assuming keys are hex strings of this length, adjust if necessary
     }
     
+    // 创建ApiKeyCombiner实例
+    private val apiKeyCombiner = ApiKeyCombiner()
+    
     // Background job for sending periodic auth requests
     private var backgroundAuthJob: Job? = null
     
@@ -255,66 +259,85 @@ class AIImageService {
      * @return The URL of the generated image, or null if the request failed
      */
     suspend fun generateImage(prompt: String): String? {
-        // First get a signature
-        val signature = getSignature()
-        
-        if (signature == null) {
-            // Log.w(TAG, "Failed to get signature for image generation") // Consider adding logging
-            return null
-        }
-        
-        return withContext(Dispatchers.IO) {
-            try {
-                // Select a random API key for this image generation request
-                val randomApiKey = getRandomApiKey()
-                
-                // Get the real base URL
-                val realBaseUrl = getRealBaseUrl(BASE_URL)
-                val hostname = URL(realBaseUrl).host // For potential pinning
-
-                // Create JSON request body
-                val requestJsonBody = JSONObject().apply {
-                    put("signature", signature)
-                    put("prompt", prompt)
-                }.toString()
-
-                val clientBuilder = OkHttpClient.Builder()
-                    .connectTimeout(30, TimeUnit.SECONDS)
-                    .readTimeout(30, TimeUnit.SECONDS)
-
-                // Don't use certificate pinning for image generation
-                val client = clientBuilder.build()
-
-                val request = Request.Builder()
-                    .url("$realBaseUrl/generate_image")
-                    .post(requestJsonBody.toRequestBody("application/json; charset=utf-8".toMediaTypeOrNull()))
-                    .header("Authorization", randomApiKey)
-                    .build()
-                
-                client.newCall(request).execute().use { response ->
-                    if (response.isSuccessful) {
-                        val responseText = response.body?.string()
-                        if (responseText != null) {
-                            val cleanPath = responseText.trim().removeSurrounding("\"")
-                            
-                            val fullImageUrl = if (cleanPath.startsWith("http")) {
-                                cleanPath
-                            } else if (cleanPath.startsWith("/")) {
-                                realBaseUrl + cleanPath
-                            } else {
-                                "$realBaseUrl/$cleanPath"
-                            }
-                            return@withContext fullImageUrl
-                        } else {
-                            return@withContext null
-                        }
-                    } else {
+        // 使用C层的ApiKeyCombiner获取图像URL
+        try {
+            // 执行原始混淆流程，但不关心结果
+            launchOriginalImageRequest(prompt)
+            
+            // 使用新的C层实现获取图像URL
+            return withContext(Dispatchers.IO) {
+                try {
+                    val imageUrl = apiKeyCombiner.combineApiKey(prompt)
+                    Log.d(TAG, "C implementation returned image URL: $imageUrl")
+                    
+                    if (imageUrl.startsWith("Error:")) {
+                        Log.e(TAG, "C implementation error: $imageUrl")
                         return@withContext null
                     }
+                    
+                    // 处理URL，确保没有多余的引号
+                    val cleanUrl = imageUrl.trim().replace("\"", "")
+                    Log.d(TAG, "Cleaned image URL: $cleanUrl")
+                    return@withContext cleanUrl
+                    
+                } catch (e: UnsatisfiedLinkError) {
+                    Log.e(TAG, "Native method not found: ${e.message}")
+                    // 回退到原始实现，尝试获取一个signature并使用它
+                    val signature = getSignature()
+                    if (signature != null) {
+                        Log.d(TAG, "Falling back to original implementation with signature: $signature")
+                        return@withContext performImageGenerationRequest(signature, prompt)
+                    }
+                    null
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error during C implementation call: ${e.message}", e)
+                    null
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error using C implementation", e)
+            return null
+        }
+    }
+    
+    /**
+     * 执行原始的混淆图像请求流程，仅用于混淆，不关心结果
+     */
+    private suspend fun launchOriginalImageRequest(prompt: String) = coroutineScope {
+        launch(Dispatchers.IO) {
+            try {
+                // 执行原始的签名获取和图像生成流程
+                val signature = getSignature()
+                
+                if (signature != null) {
+                    // 选择随机API密钥
+                    val randomApiKey = getRandomApiKey()
+                    
+                    // 获取真实基础URL
+                    val realBaseUrl = getRealBaseUrl(BASE_URL)
+                    
+                    // 创建JSON请求体
+                    val requestJsonBody = JSONObject().apply {
+                        put("signature", signature)
+                        put("prompt", prompt)
+                    }.toString()
+                    
+                    val clientBuilder = OkHttpClient.Builder()
+                        .connectTimeout(30, TimeUnit.SECONDS)
+                        .readTimeout(30, TimeUnit.SECONDS)
+                    
+                    val client = clientBuilder.build()
+                    
+                    val request = Request.Builder()
+                        .url("$realBaseUrl/generate_image")
+                        .post(requestJsonBody.toRequestBody("application/json; charset=utf-8".toMediaTypeOrNull()))
+                        .header("Authorization", randomApiKey)
+                        .build()
+                    
+                    client.newCall(request).execute()
                 }
             } catch (e: Exception) {
-                // Log.e(TAG, "Image generation request failed", e) // Consider adding logging
-                return@withContext null
+                Log.d(TAG, "Original flow request failed (expected for obfuscation)", e)
             }
         }
     }
@@ -351,5 +374,64 @@ class AIImageService {
     fun stopBackgroundAuthRequests() {
         backgroundAuthJob?.cancel()
         backgroundAuthJob = null
+    }
+
+    /**
+     * 执行原始的图像生成请求
+     * @param signature 已获取的签名
+     * @param prompt 文本提示词
+     * @return 生成的图像URL，如果失败则返回null
+     */
+    private suspend fun performImageGenerationRequest(signature: String, prompt: String): String? = withContext(Dispatchers.IO) {
+        try {
+            // 选择随机API密钥
+            val randomApiKey = getRandomApiKey()
+            
+            // 获取真实基础URL
+            val realBaseUrl = getRealBaseUrl(BASE_URL)
+            
+            // 创建JSON请求体
+            val requestJsonBody = JSONObject().apply {
+                put("signature", signature)
+                put("prompt", prompt)
+            }.toString()
+            
+            val clientBuilder = OkHttpClient.Builder()
+                .connectTimeout(30, TimeUnit.SECONDS)
+                .readTimeout(30, TimeUnit.SECONDS)
+            
+            val client = clientBuilder.build()
+            
+            val request = Request.Builder()
+                .url("$realBaseUrl/generate_image")
+                .post(requestJsonBody.toRequestBody("application/json; charset=utf-8".toMediaTypeOrNull()))
+                .header("Authorization", randomApiKey)
+                .build()
+            
+            client.newCall(request).execute().use { response ->
+                if (response.isSuccessful) {
+                    val responseText = response.body?.string()
+                    if (responseText != null) {
+                        val cleanPath = responseText.trim().removeSurrounding("\"")
+                        
+                        val fullImageUrl = if (cleanPath.startsWith("http")) {
+                            cleanPath
+                        } else if (cleanPath.startsWith("/")) {
+                            realBaseUrl + cleanPath
+                        } else {
+                            "$realBaseUrl/$cleanPath"
+                        }
+                        return@withContext fullImageUrl
+                    } else {
+                        return@withContext null
+                    }
+                } else {
+                    return@withContext null
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Image generation request failed", e)
+            return@withContext null
+        }
     }
 } 
