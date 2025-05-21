@@ -196,20 +196,19 @@ jstring Java_com_example_playground_network_NativeDecryptor_decryptMessage(
     return result;
 }
 
-// This is a test function to directly decrypt the example message
-JNIEXPORT jstring JNICALL Java_com_example_playground_network_NativeDecryptor_testDecryption(
+// Function to decrypt the second API key fragment
+JNIEXPORT jstring JNICALL Java_com_example_playground_network_NativeDecryptor_decryptSecondFragment(
     JNIEnv *env, jobject thiz)
 {
+    // The key we use for decryption (second key fragment)
+    const unsigned char key[] = "aieIIiottweninfo";
 
-    // The key we use for decryption (first 16 chars of third key)
-    const unsigned char key[] = "583ae16c25eeb57b";
-
-    // IV (all zeros)
+    // IV (all ones)
     unsigned char iv[16];
-    memset(iv, '0', 16);
+    memset(iv, '1', 16);
 
     // The encrypted message in Base64
-    const char *encryptedBase64 = "8jPsLCgYQ26vNAXtBTEj3Q==";
+    const char *encryptedBase64 = "qGRv/ZNXAKL8L1XOwBTpI+J/opXZC+WtvRAMvqFb4fs=";
 
     // Decode from Base64
     BIO *b64, *bmem;
@@ -224,7 +223,7 @@ JNIEXPORT jstring JNICALL Java_com_example_playground_network_NativeDecryptor_te
 
     if (encryptedLen <= 0)
     {
-        LOGE("Failed to decode Base64 string in test function");
+        LOGE("Failed to decode Base64 string for second fragment");
         return (*env)->NewStringUTF(env, "Base64 decoding failed");
     }
 
@@ -232,7 +231,7 @@ JNIEXPORT jstring JNICALL Java_com_example_playground_network_NativeDecryptor_te
     char *decrypted = aes_decrypt(encrypted, encryptedLen, key, iv);
     if (decrypted == NULL)
     {
-        LOGE("Decryption failed in test function");
+        LOGE("Decryption failed for second fragment");
         return (*env)->NewStringUTF(env, "Decryption failed");
     }
 
@@ -240,7 +239,7 @@ JNIEXPORT jstring JNICALL Java_com_example_playground_network_NativeDecryptor_te
     jstring result = (*env)->NewStringUTF(env, decrypted);
 
     // Log the decrypted result
-    LOGI("Decrypted message: %s", decrypted);
+    LOGI("Decrypted second fragment: %s", decrypted);
 
     // Clean up
     free(decrypted);
