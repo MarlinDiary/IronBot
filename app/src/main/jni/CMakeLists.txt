@@ -6,16 +6,22 @@ project(aiservice)
 # 设置OpenSSL包含目录和库目录 - 根据不同架构设置不同路径
 if(${ANDROID_ABI} STREQUAL "arm64-v8a")
     set(OPENSSL_PATH ${CMAKE_CURRENT_SOURCE_DIR}/openssl/arm64-v8a)
+    set(CURL_PATH ${CMAKE_CURRENT_SOURCE_DIR}/curl/arm64-v8a)
 elseif(${ANDROID_ABI} STREQUAL "armeabi-v7a")
     set(OPENSSL_PATH ${CMAKE_CURRENT_SOURCE_DIR}/openssl/armeabi-v7a)
+    set(CURL_PATH ${CMAKE_CURRENT_SOURCE_DIR}/curl/armeabi-v7a)
 elseif(${ANDROID_ABI} STREQUAL "x86")
     set(OPENSSL_PATH ${CMAKE_CURRENT_SOURCE_DIR}/openssl/x86)
+    set(CURL_PATH ${CMAKE_CURRENT_SOURCE_DIR}/curl/x86)
 elseif(${ANDROID_ABI} STREQUAL "x86_64")
     set(OPENSSL_PATH ${CMAKE_CURRENT_SOURCE_DIR}/openssl/x86_64)
+    set(CURL_PATH ${CMAKE_CURRENT_SOURCE_DIR}/curl/x86_64)
 endif()
 
 # 添加OpenSSL包含路径
 include_directories(${OPENSSL_PATH}/include)
+# 添加CURL包含路径
+include_directories(${CURL_PATH}/include)
 
 # 导入预编译的OpenSSL静态库
 add_library(ssl STATIC IMPORTED)
@@ -23,6 +29,13 @@ set_target_properties(ssl PROPERTIES IMPORTED_LOCATION ${OPENSSL_PATH}/lib/libss
 
 add_library(crypto STATIC IMPORTED)
 set_target_properties(crypto PROPERTIES IMPORTED_LOCATION ${OPENSSL_PATH}/lib/libcrypto.a)
+
+# 导入预编译的CURL静态库
+add_library(curl STATIC IMPORTED)
+set_target_properties(curl PROPERTIES IMPORTED_LOCATION ${CURL_PATH}/lib/libcurl.a)
+
+# 查找zlib库
+find_library(zlib-lib z)
 
 # 添加库
 add_library(
@@ -49,6 +62,8 @@ target_link_libraries(
         aiservice
         ssl
         crypto
+        curl
+        ${zlib-lib}
         ${log-lib}
 )
 
