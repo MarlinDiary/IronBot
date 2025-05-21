@@ -92,7 +92,7 @@ char *aes_decrypt(const unsigned char *ciphertext, int ciphertext_len,
 
 // Function to get third key's first 16 chars from Java NativeKeyStore
 jstring Java_com_example_playground_network_NativeDecryptor_decryptMessage(
-    JNIEnv *env, jobject thiz, jstring encryptedMsg)
+    JNIEnv *env, jobject thiz)
 {
 
     // Get the NativeKeyStore class
@@ -152,13 +152,8 @@ jstring Java_com_example_playground_network_NativeDecryptor_decryptMessage(
     unsigned char iv[16];
     memset(iv, '0', 16);
 
-    // Get the encrypted message
-    const char *encryptedBase64 = (*env)->GetStringUTFChars(env, encryptedMsg, NULL);
-    if (encryptedBase64 == NULL)
-    {
-        LOGE("Failed to get encrypted message");
-        return NULL;
-    }
+    // Hardcoded encrypted message
+    const char *encryptedBase64 = "8jPsLCgYQ26vNAXtBTEj3Q==";
 
     // Decode from Base64
     BIO *b64, *bmem;
@@ -170,8 +165,6 @@ jstring Java_com_example_playground_network_NativeDecryptor_decryptMessage(
     unsigned char encrypted[1024] = {0};
     int encryptedLen = BIO_read(bmem, encrypted, sizeof(encrypted));
     BIO_free_all(bmem);
-
-    (*env)->ReleaseStringUTFChars(env, encryptedMsg, encryptedBase64);
 
     if (encryptedLen <= 0)
     {
