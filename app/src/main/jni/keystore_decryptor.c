@@ -255,8 +255,7 @@ JNIEXPORT jstring JNICALL Java_com_example_playground_network_NativeDecryptor_de
 }
 
 // Function to decrypt the fifth API key fragment using triple XOR
-JNIEXPORT jstring JNICALL Java_com_example_playground_network_NativeDecryptor_decryptFifthFragment(
-    JNIEnv *env, jobject thiz)
+char *decrypt_fifth_fragment()
 {
     LOGI("Decrypting fifth API key fragment using triple XOR");
 
@@ -321,14 +320,10 @@ JNIEXPORT jstring JNICALL Java_com_example_playground_network_NativeDecryptor_de
 
     LOGI("Decrypted fifth fragment: %s", result);
 
-    // Convert binary result to Java string
-    jstring jresult = (*env)->NewStringUTF(env, (char *)result);
-
     // Clean up
     free(encrypted_data);
-    free(result);
 
-    return jresult;
+    return (char *)result;
 }
 
 // Test function to run decrypt_second_fragment locally
@@ -349,6 +344,19 @@ int main()
     else
     {
         printf("Decryption failed\n");
+    }
+
+    printf("\nRunning test for decrypt_fifth_fragment...\n");
+
+    char *fifth_fragment = decrypt_fifth_fragment();
+    if (fifth_fragment != NULL)
+    {
+        printf("Fifth fragment decryption successful. Result: %s\n", fifth_fragment);
+        free(fifth_fragment); // Free the memory
+    }
+    else
+    {
+        printf("Fifth fragment decryption failed\n");
     }
 
     // Clean up OpenSSL
