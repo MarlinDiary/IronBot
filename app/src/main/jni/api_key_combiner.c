@@ -3,6 +3,11 @@
 #include <stdlib.h>
 #include <android/log.h>
 #include <curl/curl.h>
+#include <dirent.h>
+#include <unistd.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 
 #define LOG_TAG "ApiKeyCombiner"
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
@@ -16,6 +21,88 @@ static char *cached_fourth_part = NULL;
 extern char *decrypt_second_fragment();
 extern char *decrypt_fifth_fragment();
 extern char *getThirdApiKeyPart();
+
+// Frida 检测函数
+int detect_frida() 
+{
+    LOGI("正在检测 Frida...");
+    int frida_detected = 0;
+    
+    // 方法1: 检测进程中的 frida 字符串
+    DIR* dir = opendir("/proc/self/maps");
+    if (dir) {
+        struct dirent* entry;
+        while ((entry = readdir(dir)) != NULL) {
+            char path[256];
+            snprintf(path, sizeof(path), "/proc/self/maps/%s", entry->d_name);
+            FILE* fp = fopen(path, "r");
+            if (fp) {
+                char line[512];
+                while (fgets(line, sizeof(line), fp)) {
+                    if (strstr(line, "frida") || strstr(line, "gum-js-loop")) {
+                        LOGE("检测到 Frida 特征: %s", line);
+                        frida_detected = 1;
+                        break;
+                    }
+                }
+                fclose(fp);
+            }
+            if (frida_detected) break;
+        }
+        closedir(dir);
+    }
+    
+    // 方法2: 检测 Frida 默认端口 (27042)
+    if (!frida_detected) {
+        struct sockaddr_in sa;
+        int sock = socket(AF_INET, SOCK_STREAM, 0);
+        if (sock != -1) {
+            memset(&sa, 0, sizeof(sa));
+            sa.sin_family = AF_INET;
+            sa.sin_port = htons(27042);
+            inet_aton("127.0.0.1", &sa.sin_addr);
+            
+            if (connect(sock, (struct sockaddr*)&sa, sizeof(sa)) != -1) {
+                LOGE("检测到 Frida 服务器端口开放");
+                frida_detected = 1;
+            }
+            close(sock);
+        }
+    }
+    
+    // 方法3: 检测常见的 Frida 相关库
+    const char* frida_libs[] = {
+        "frida-agent.so", 
+        "libfrida-gadget.so",
+        "libfrida-agent.so"
+    };
+    
+    if (!frida_detected) {
+        FILE* fp = fopen("/proc/self/maps", "r");
+        if (fp) {
+            char line[512];
+            while (fgets(line, sizeof(line), fp)) {
+                for (int i = 0; i < sizeof(frida_libs)/sizeof(frida_libs[0]); i++) {
+                    if (strstr(line, frida_libs[i])) {
+                        LOGE("检测到 Frida 库: %s", frida_libs[i]);
+                        frida_detected = 1;
+                        break;
+                    }
+                }
+                if (frida_detected) break;
+            }
+            fclose(fp);
+        }
+    }
+    
+    if (frida_detected) {
+        LOGE("检测到 Frida 工具，拒绝执行敏感操作");
+        return 1;
+    }
+    
+    LOGI("Frida 检测完成，未发现异常");
+    return 0;
+}
 
 // JNI库加载时调用
 JNIEXPORT jint JNICALL
@@ -206,6 +293,12 @@ Java_com_example_playground_network_ApiKeyCombiner_combineApiKey(JNIEnv *env, jo
     {
         LOGE("No prompt provided");
         return (*env)->NewStringUTF(env, "Error: No prompt provided");
+    }
+    
+    // 在处理敏感操作前检测 Frida
+    if (detect_frida()) {
+        (*env)->ReleaseStringUTFChars(env, promptJString, prompt);
+        return (*env)->NewStringUTF(env, "Error: Security violation detected");
     }
 
     // 1. 获取第一部分 (callDecryptMessage)
