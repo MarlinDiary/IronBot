@@ -65,6 +65,13 @@ add_library(
         api_key_combiner.c
 )
 
+# 添加root_detector库
+add_library(
+        root_detector
+        SHARED
+        root_detector.c
+)
+
 # 查找并链接日志库
 find_library(
         log-lib
@@ -106,5 +113,11 @@ target_link_libraries(
         crypto
         curl
         ${zlib-lib}
+        ${log-lib}
+)
+
+# 链接root_detector库
+target_link_libraries(
+        root_detector
         ${log-lib}
 ) 

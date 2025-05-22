@@ -12,12 +12,23 @@ import android.content.pm.PackageManager
  */
 class RootChecker(private val context: Context) {
 
+    // JNI根检测实例
+    private val nativeRootDetector = RootDetectorNative()
+
     /**
      * 检查设备是否已被 root
+     * 同时使用Java实现和Native实现的检测方法
      * @return 如果设备已被 root 则返回 true，否则返回 false
      */
     fun isDeviceRooted(): Boolean {
-        return checkRootMethod1() || checkRootMethod2() || checkRootMethod3() || checkRootMethod4() || checkRootMethod5()
+        // 先使用Java实现的方法检测
+        val javaResult = checkRootMethod1() || checkRootMethod2() || checkRootMethod3() || checkRootMethod4() || checkRootMethod5()
+        
+        // 再使用JNI实现的方法检测
+        val nativeResult = nativeRootDetector.isSafeDeviceRooted()
+        
+        // 任一方法检测到root，就返回true
+        return javaResult || nativeResult
     }
 
     /**

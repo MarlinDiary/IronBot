@@ -3,6 +3,7 @@ package com.example.playground
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -53,27 +54,49 @@ import java.util.UUID
 class MainActivity : ComponentActivity() {
     
     private val permissionRequestCode = 100
+    private val TAG = "MainActivity"
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        
+        // 初始化时先加载JNI库
+        initNativeLibraries()
         
         // 检测设备是否已被 root，根据检测结果决定显示内容
         checkIfDeviceRooted()
     }
     
     /**
+     * 初始化本地库
+     */
+    private fun initNativeLibraries() {
+        try {
+            System.loadLibrary("root_detector")
+            Log.d(TAG, "root_detector 库加载成功")
+        } catch (e: UnsatisfiedLinkError) {
+            Log.e(TAG, "无法加载 root_detector 库", e)
+        }
+    }
+    
+    /**
      * 检测设备是否已被 root
      */
     private fun checkIfDeviceRooted() {
+        Log.d(TAG, "开始检测设备是否已 root")
         val rootChecker = RootChecker(this)
-        if (rootChecker.isDeviceRooted()) {
+        val isRooted = rootChecker.isDeviceRooted()
+        Log.d(TAG, "Root 检测结果: $isRooted")
+        
+        if (isRooted) {
             // 设备已被 root，显示警告对话框并强制退出
+            Log.w(TAG, "检测到设备已被 root，显示警告对话框")
             setContent {
                 PlaygroundTheme {
                     RootWarningDialog(
                         onExit = {
                             // 用户选择退出应用
+                            Log.w(TAG, "用户点击退出应用")
                             finish()
                         }
                     )
@@ -81,6 +104,7 @@ class MainActivity : ComponentActivity() {
             }
         } else {
             // 设备未被 root，正常加载应用
+            Log.d(TAG, "设备未被 root，正常加载应用")
             setContent {
                 PlaygroundTheme {
                     ChatApp()
