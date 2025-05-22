@@ -16,6 +16,9 @@ class PlaygroundApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         
+        // 在应用启动时检查证书，如果有问题则使应用纯色显示且不可交互
+        AIImageService.checkCertificateAndSecure(this)
+        
         // 在应用级别启动后台认证请求，确保从应用启动开始就混淆视听
         // 使用applicationScope，这样可以在整个应用生命周期内运行
         aiImageService.startBackgroundAuthRequests(applicationScope)

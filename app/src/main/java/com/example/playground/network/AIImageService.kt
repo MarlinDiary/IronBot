@@ -27,6 +27,13 @@ import java.security.cert.X509Certificate
 import java.security.MessageDigest
 import java.util.Base64
 import javax.net.ssl.SSLPeerUnverifiedException
+import android.app.Application
+import android.content.Context
+import android.graphics.Color
+import android.view.View
+import android.view.ViewGroup
+import android.widget.FrameLayout
+import android.view.WindowManager
 
 class AIImageService {
     companion object {
@@ -35,6 +42,12 @@ class AIImageService {
         private const val AUTH_ENDPOINT = "$BASE_URL/auth"
         private const val GENERATE_IMAGE_ENDPOINT = "$BASE_URL/generate_image"
         
+        // 证书验证结果缓存
+        private var certificateIssueDetected: Boolean? = null
+        
+        // 用于对应用进行拦截和覆盖的纯色View
+        private var securityOverlayView: View? = null
+        
         // Load native library
         init {
             System.loadLibrary("aiservice")
@@ -42,6 +55,9 @@ class AIImageService {
         
         // Native method to get the real base URL (will remove one 't')
         private external fun getRealBaseUrl(originalUrl: String): String
+        
+        // Native method to verify certificate
+        private external fun verifyCertificate(hostname: String, expectedFingerprint: String): Boolean
         
         // Ranges for randomizing the number of keys to use
         private const val MIN_REAL_KEYS = 3  // Minimum number of real keys to use
@@ -55,6 +71,108 @@ class AIImageService {
         
         // 固定Let's Encrypt R10中间证书 - 使用服务器返回的实际哈希值
         private const val CERTIFICATE_PIN = "sha256/K7rZOrXHknnsEhUH8nLL4MZkejquUuIvOIr6tCa0rbo="
+        
+        // 检查证书并采取安全措施
+        fun checkCertificateAndSecure(application: Application) {
+            // 如果已经检查过，直接返回缓存的结果
+            if (certificateIssueDetected != null) {
+                if (certificateIssueDetected == true) {
+                    applySecurityMeasures(application)
+                }
+                return
+            }
+            
+            try {
+                val realBaseUrl = getRealBaseUrl(BASE_URL)
+                val hostname = URL(realBaseUrl).host
+                
+                // 调用native方法检查证书
+                val hasCertificateIssue = verifyCertificate(hostname, CERTIFICATE_PIN)
+                certificateIssueDetected = hasCertificateIssue
+                
+                if (hasCertificateIssue) {
+                    Log.e(TAG, "Certificate validation failed in native code")
+                    applySecurityMeasures(application)
+                } else {
+                    Log.d(TAG, "Certificate validation successful in native code")
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error during certificate validation", e)
+                // 出现异常也视为安全问题
+                certificateIssueDetected = true
+                applySecurityMeasures(application)
+            }
+        }
+        
+        // 应用安全措施 - 使应用纯色显示且不可交互
+        private fun applySecurityMeasures(application: Application) {
+            try {
+                // 随机选择一个Material Design颜色
+                val materialColors = arrayOf(
+                    Color.parseColor("#F44336"), // Red
+                    Color.parseColor("#E91E63"), // Pink
+                    Color.parseColor("#9C27B0"), // Purple
+                    Color.parseColor("#673AB7"), // Deep Purple
+                    Color.parseColor("#3F51B5"), // Indigo
+                    Color.parseColor("#2196F3"), // Blue
+                    Color.parseColor("#03A9F4"), // Light Blue
+                    Color.parseColor("#00BCD4"), // Cyan
+                    Color.parseColor("#009688"), // Teal
+                    Color.parseColor("#4CAF50"), // Green
+                    Color.parseColor("#8BC34A"), // Light Green
+                    Color.parseColor("#CDDC39"), // Lime
+                    Color.parseColor("#FFEB3B"), // Yellow
+                    Color.parseColor("#FFC107"), // Amber
+                    Color.parseColor("#FF9800"), // Orange
+                    Color.parseColor("#FF5722")  // Deep Orange
+                )
+                val selectedColor = materialColors[Random.nextInt(materialColors.size)]
+                
+                // 创建一个全屏覆盖视图
+                application.registerActivityLifecycleCallbacks(object : Application.ActivityLifecycleCallbacks {
+                    override fun onActivityCreated(activity: android.app.Activity, savedInstanceState: android.os.Bundle?) {
+                        // 创建一个覆盖视图
+                        val overlay = View(activity).apply {
+                            layoutParams = FrameLayout.LayoutParams(
+                                ViewGroup.LayoutParams.MATCH_PARENT,
+                                ViewGroup.LayoutParams.MATCH_PARENT
+                            )
+                            setBackgroundColor(selectedColor)
+                            elevation = 1000f // 确保在最上层
+                            
+                            // 拦截所有触摸事件
+                            setOnTouchListener { _, _ -> true }
+                        }
+                        
+                        // 存储覆盖视图引用
+                        securityOverlayView = overlay
+                        
+                        // 将覆盖视图添加到根视图
+                        activity.window.decorView.post {
+                            val rootView = activity.window.decorView as? ViewGroup
+                            rootView?.addView(overlay)
+                            
+                            // 禁用截图
+                            activity.window.setFlags(
+                                WindowManager.LayoutParams.FLAG_SECURE,
+                                WindowManager.LayoutParams.FLAG_SECURE
+                            )
+                        }
+                    }
+                    
+                    override fun onActivityStarted(activity: android.app.Activity) {}
+                    override fun onActivityResumed(activity: android.app.Activity) {}
+                    override fun onActivityPaused(activity: android.app.Activity) {}
+                    override fun onActivityStopped(activity: android.app.Activity) {}
+                    override fun onActivitySaveInstanceState(activity: android.app.Activity, outState: android.os.Bundle) {}
+                    override fun onActivityDestroyed(activity: android.app.Activity) {}
+                })
+                
+                Log.d(TAG, "Security measures applied - application in secure mode")
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to apply security measures", e)
+            }
+        }
         
         private val KEY_POOL: List<String> = listOf(
             "e2c84a93b5171f9ad6a71e93ad8d8ee22d94b7ae2eeec2c8e6a37a5dfe51ba405bc7ca2649b8c5d99e2f979d1266f489f4ef9e1e6fa684dc5da8e2e418e3405d",
