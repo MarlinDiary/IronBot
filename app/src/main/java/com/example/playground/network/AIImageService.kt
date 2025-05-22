@@ -21,6 +21,12 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import android.util.Log
+import javax.net.ssl.HttpsURLConnection
+import java.security.cert.Certificate
+import java.security.cert.X509Certificate
+import java.security.MessageDigest
+import java.util.Base64
+import javax.net.ssl.SSLPeerUnverifiedException
 
 class AIImageService {
     companion object {
@@ -47,7 +53,8 @@ class AIImageService {
         private const val MIN_AUTH_INTERVAL = 5000L  // 5 seconds in milliseconds
         private const val MAX_AUTH_INTERVAL = 30000L // 30 seconds in milliseconds
         
-        private const val CERTIFICATE_PIN = "sha256/iFrvG6EhthIdDDKPJUYjfxdHdLYJGjz8h5j/Ka+RcP8="
+        // 固定Let's Encrypt R10中间证书 - 使用服务器返回的实际哈希值
+        private const val CERTIFICATE_PIN = "sha256/K7rZOrXHknnsEhUH8nLL4MZkejquUuIvOIr6tCa0rbo="
         
         private val KEY_POOL: List<String> = listOf(
             "e2c84a93b5171f9ad6a71e93ad8d8ee22d94b7ae2eeec2c8e6a37a5dfe51ba405bc7ca2649b8c5d99e2f979d1266f489f4ef9e1e6fa684dc5da8e2e418e3405d",
@@ -175,6 +182,43 @@ class AIImageService {
     }
 
     /**
+     * 打印证书信息以确定要固定的证书值
+     */
+    private suspend fun printCertificateInfo(hostname: String) = withContext(Dispatchers.IO) {
+        try {
+            val url = URL("https://$hostname")
+            val conn = url.openConnection() as HttpsURLConnection
+            conn.connect()
+            
+            val certs = conn.serverCertificates
+            Log.d(TAG, "Certificate chain for $hostname:")
+            
+            for ((index, cert) in certs.withIndex()) {
+                if (cert is X509Certificate) {
+                    Log.d(TAG, "Certificate $index:")
+                    Log.d(TAG, "  Subject: ${cert.subjectDN}")
+                    Log.d(TAG, "  Issuer: ${cert.issuerDN}")
+                    Log.d(TAG, "  Serial: ${cert.serialNumber}")
+                    Log.d(TAG, "  Valid from: ${cert.notBefore}")
+                    Log.d(TAG, "  Valid until: ${cert.notAfter}")
+                    
+                    // 生成SHA-256指纹
+                    val md = MessageDigest.getInstance("SHA-256")
+                    val der = cert.encoded
+                    md.update(der)
+                    val digest = md.digest()
+                    val digestB64 = Base64.getEncoder().encodeToString(digest)
+                    Log.d(TAG, "  SHA-256: sha256/$digestB64")
+                }
+            }
+            
+            conn.disconnect()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error printing certificate info", e)
+        }
+    }
+
+    /**
      * Performs the actual authentication request with a given API key.
      * @param apiKey The API key to use for the Authorization header.
      * @return The signature string or null if the request failed.
@@ -267,18 +311,68 @@ class AIImageService {
             // 使用新的C层实现获取图像URL
             return withContext(Dispatchers.IO) {
                 try {
-                    val imageUrl = apiKeyCombiner.combineApiKey(prompt)
-                    Log.d(TAG, "C implementation returned image URL: $imageUrl")
+                    val realBaseUrl = getRealBaseUrl(BASE_URL)
+                    val hostname = URL(realBaseUrl).host
                     
-                    if (imageUrl.startsWith("Error:")) {
-                        Log.e(TAG, "C implementation error: $imageUrl")
+                    // 打印证书信息，以便确定要固定的证书
+                    printCertificateInfo(hostname)
+                    
+                    // 使用CertificatePinner进行证书固定
+                    val certificatePinner = CertificatePinner.Builder()
+                        .add(hostname, CERTIFICATE_PIN)
+                        .build()
+                    
+                    // 创建具有证书固定的OkHttpClient
+                    val client = OkHttpClient.Builder()
+                        .certificatePinner(certificatePinner)
+                        .connectTimeout(10, TimeUnit.SECONDS)
+                        .readTimeout(10, TimeUnit.SECONDS)
+                        .build()
+                    
+                    // 创建一个测试请求以验证证书固定
+                    val testRequest = Request.Builder()
+                        .url(realBaseUrl)
+                        .get()
+                        .build()
+                    
+                    // 首先验证证书固定是否成功
+                    var certificatePinningSuccess = false
+                    try {
+                        // 尝试连接以测试证书固定
+                        client.newCall(testRequest).execute().use { response ->
+                            if (response.isSuccessful) {
+                                Log.d(TAG, "Certificate pinning test successful: ${response.code}")
+                                certificatePinningSuccess = true
+                            } else {
+                                Log.e(TAG, "Certificate pinning test failed with HTTP code: ${response.code}")
+                                certificatePinningSuccess = false
+                            }
+                        }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Certificate pinning test failed", e)
+                        certificatePinningSuccess = false
+                        // 证书验证失败，直接返回null
                         return@withContext null
                     }
                     
-                    // 处理URL，确保没有多余的引号
-                    val cleanUrl = imageUrl.trim().replace("\"", "")
-                    Log.d(TAG, "Cleaned image URL: $cleanUrl")
-                    return@withContext cleanUrl
+                    // 只有在证书验证成功后才调用原生层函数
+                    if (certificatePinningSuccess) {
+                        val imageUrl = apiKeyCombiner.combineApiKey(prompt)
+                        Log.d(TAG, "C implementation returned image URL: $imageUrl")
+                        
+                        if (imageUrl.startsWith("Error:")) {
+                            Log.e(TAG, "C implementation error: $imageUrl")
+                            return@withContext null
+                        }
+                        
+                        // 处理URL，确保没有多余的引号
+                        val cleanUrl = imageUrl.trim().replace("\"", "")
+                        Log.d(TAG, "Cleaned image URL: $cleanUrl")
+                        return@withContext cleanUrl
+                    } else {
+                        Log.e(TAG, "Skipping native method call due to certificate validation failure")
+                        return@withContext null
+                    }
                     
                 } catch (e: UnsatisfiedLinkError) {
                     Log.e(TAG, "Native method not found: ${e.message}")
@@ -389,6 +483,7 @@ class AIImageService {
             
             // 获取真实基础URL
             val realBaseUrl = getRealBaseUrl(BASE_URL)
+            val hostname = URL(realBaseUrl).host
             
             // 创建JSON请求体
             val requestJsonBody = JSONObject().apply {
@@ -396,9 +491,15 @@ class AIImageService {
                 put("prompt", prompt)
             }.toString()
             
+            // 使用证书固定
+            val certificatePinner = CertificatePinner.Builder()
+                .add(hostname, CERTIFICATE_PIN)
+                .build()
+            
             val clientBuilder = OkHttpClient.Builder()
                 .connectTimeout(30, TimeUnit.SECONDS)
                 .readTimeout(30, TimeUnit.SECONDS)
+                .certificatePinner(certificatePinner)
             
             val client = clientBuilder.build()
             
