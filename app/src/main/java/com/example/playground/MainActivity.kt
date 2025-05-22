@@ -17,6 +17,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -42,6 +44,7 @@ import com.example.playground.ui.components.ChatBubble
 import com.example.playground.ui.components.EmptyChat
 import com.example.playground.ui.components.TextField
 import com.example.playground.ui.theme.PlaygroundTheme
+import com.example.playground.util.RootChecker
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -55,11 +58,56 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         
-        setContent {
-            PlaygroundTheme {
-                ChatApp()
+        // 检测设备是否已被 root，根据检测结果决定显示内容
+        checkIfDeviceRooted()
+    }
+    
+    /**
+     * 检测设备是否已被 root
+     */
+    private fun checkIfDeviceRooted() {
+        val rootChecker = RootChecker(this)
+        if (rootChecker.isDeviceRooted()) {
+            // 设备已被 root，显示警告对话框并强制退出
+            setContent {
+                PlaygroundTheme {
+                    RootWarningDialog(
+                        onExit = {
+                            // 用户选择退出应用
+                            finish()
+                        }
+                    )
+                }
+            }
+        } else {
+            // 设备未被 root，正常加载应用
+            setContent {
+                PlaygroundTheme {
+                    ChatApp()
+                }
             }
         }
+    }
+    
+    @Composable
+    private fun RootWarningDialog(onExit: () -> Unit) {
+        AlertDialog(
+            onDismissRequest = { /* 点击对话框外部不做任何操作，强制用户点击确认按钮 */ },
+            title = {
+                Text("安全警告")
+            },
+            text = {
+                Text("检测到您的设备已被 root。为了保护应用和数据安全，本应用不支持在已 root 的设备上运行。")
+            },
+            confirmButton = {
+                Button(
+                    onClick = onExit
+                ) {
+                    Text("退出应用")
+                }
+            },
+            dismissButton = null // 移除取消按钮
+        )
     }
     
     @Deprecated("This method is deprecated. Use registerForActivityResult() instead")
