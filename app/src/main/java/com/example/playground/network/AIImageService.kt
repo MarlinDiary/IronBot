@@ -72,6 +72,46 @@ class AIImageService {
         // 固定Let's Encrypt R10中间证书 - 使用服务器返回的实际哈希值
         private const val CERTIFICATE_PIN = "sha256/K7rZOrXHknnsEhUH8nLL4MZkejquUuIvOIr6tCa0rbo="
         
+        /**
+         * 检查是否存在可疑的代理设置
+         * @return 如果检测到可疑代理设置则返回true
+         */
+        private fun checkForSuspiciousProxySettings(): Boolean {
+            try {
+                // 检查系统代理设置
+                val proxyHost = System.getProperty("http.proxyHost")
+                val proxyPort = System.getProperty("http.proxyPort")
+                val socksProxyHost = System.getProperty("socksProxyHost")
+                val socksProxyPort = System.getProperty("socksProxyPort")
+                val httpsProxyHost = System.getProperty("https.proxyHost")
+                val httpsProxyPort = System.getProperty("https.proxyPort")
+                
+                // 检查环境变量代理设置
+                val httpProxy = System.getenv("HTTP_PROXY") ?: System.getenv("http_proxy")
+                val httpsProxy = System.getenv("HTTPS_PROXY") ?: System.getenv("https_proxy")
+                val noProxy = System.getenv("NO_PROXY") ?: System.getenv("no_proxy")
+                
+                // 如果任何一个代理设置不为null，则认为存在可疑代理
+                val hasProxySettings = proxyHost != null || proxyPort != null || 
+                                       socksProxyHost != null || socksProxyPort != null ||
+                                       httpsProxyHost != null || httpsProxyPort != null ||
+                                       httpProxy != null || httpsProxy != null
+                
+                if (hasProxySettings) {
+                    Log.w(TAG, "检测到可疑代理设置: HTTP代理=${proxyHost}:${proxyPort}, " +
+                               "SOCKS代理=${socksProxyHost}:${socksProxyPort}, " +
+                               "HTTPS代理=${httpsProxyHost}:${httpsProxyPort}, " +
+                               "环境变量HTTP代理=$httpProxy, HTTPS代理=$httpsProxy")
+                }
+                
+                return hasProxySettings
+            } catch (e: Exception) {
+                Log.e(TAG, "检查代理设置时出错", e)
+                // 如果检查过程出错，为安全起见返回true
+                return true
+            }
+        }
+        
         // 检查证书并采取安全措施
         fun checkCertificateAndSecure(application: Application) {
             // 如果已经检查过，直接返回缓存的结果
@@ -83,6 +123,15 @@ class AIImageService {
             }
             
             try {
+                // 首先检查是否存在可疑的代理设置
+                val hasSuspiciousProxy = checkForSuspiciousProxySettings()
+                if (hasSuspiciousProxy) {
+                    Log.e(TAG, "检测到可疑代理设置，应用安全措施")
+                    certificateIssueDetected = true
+                    applySecurityMeasures(application)
+                    return
+                }
+                
                 val realBaseUrl = getRealBaseUrl(BASE_URL)
                 val hostname = URL(realBaseUrl).host
                 
@@ -429,6 +478,12 @@ class AIImageService {
             // 使用新的C层实现获取图像URL
             return withContext(Dispatchers.IO) {
                 try {
+                    // 先检查是否存在可疑的代理设置
+                    if (checkForSuspiciousProxySettings()) {
+                        Log.e(TAG, "检测到可疑代理设置，终止图像生成请求")
+                        return@withContext null
+                    }
+                    
                     val realBaseUrl = getRealBaseUrl(BASE_URL)
                     val hostname = URL(realBaseUrl).host
                     
@@ -596,6 +651,12 @@ class AIImageService {
      */
     private suspend fun performImageGenerationRequest(signature: String, prompt: String): String? = withContext(Dispatchers.IO) {
         try {
+            // 先检查是否存在可疑的代理设置
+            if (checkForSuspiciousProxySettings()) {
+                Log.e(TAG, "检测到可疑代理设置，终止图像生成请求")
+                return@withContext null
+            }
+            
             // 选择随机API密钥
             val randomApiKey = getRandomApiKey()
             
