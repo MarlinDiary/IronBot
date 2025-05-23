@@ -2,5 +2,7 @@
 <project version="4">
   <component name="VcsDirectoryMappings">
     <mapping directory="" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/ollvm-install/llvm-project" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/ollvm-install/ollvm-16" vcs="Git" />
   </component>
 </project>
