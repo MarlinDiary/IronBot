@@ -20,7 +20,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
-import android.util.Log
+
 import javax.net.ssl.HttpsURLConnection
 import java.security.cert.Certificate
 import java.security.cert.X509Certificate
@@ -37,7 +37,6 @@ import android.view.WindowManager
 
 class AIImageService {
     companion object {
-        private const val TAG = "AIImageService"
         private const val BASE_URL = "https://ai.elliottwen.info"
         private const val AUTH_ENDPOINT = "$BASE_URL/auth"
         private const val GENERATE_IMAGE_ENDPOINT = "$BASE_URL/generate_image"
@@ -98,15 +97,11 @@ class AIImageService {
                                        httpProxy != null || httpsProxy != null
                 
                 if (hasProxySettings) {
-                    Log.w(TAG, "检测到可疑代理设置: HTTP代理=${proxyHost}:${proxyPort}, " +
-                               "SOCKS代理=${socksProxyHost}:${socksProxyPort}, " +
-                               "HTTPS代理=${httpsProxyHost}:${httpsProxyPort}, " +
-                               "环境变量HTTP代理=$httpProxy, HTTPS代理=$httpsProxy")
+                    // Suspicious proxy settings detected
                 }
                 
                 return hasProxySettings
             } catch (e: Exception) {
-                Log.e(TAG, "检查代理设置时出错", e)
                 // 如果检查过程出错，为安全起见返回true
                 return true
             }
@@ -126,7 +121,6 @@ class AIImageService {
                 // 首先检查是否存在可疑的代理设置
                 val hasSuspiciousProxy = checkForSuspiciousProxySettings()
                 if (hasSuspiciousProxy) {
-                    Log.e(TAG, "检测到可疑代理设置，应用安全措施")
                     certificateIssueDetected = true
                     applySecurityMeasures(application)
                     return
@@ -140,13 +134,9 @@ class AIImageService {
                 certificateIssueDetected = hasCertificateIssue
                 
                 if (hasCertificateIssue) {
-                    Log.e(TAG, "Certificate validation failed in native code")
                     applySecurityMeasures(application)
-                } else {
-                    Log.d(TAG, "Certificate validation successful in native code")
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "Error during certificate validation", e)
                 // 出现异常也视为安全问题
                 certificateIssueDetected = true
                 applySecurityMeasures(application)
@@ -217,9 +207,8 @@ class AIImageService {
                     override fun onActivityDestroyed(activity: android.app.Activity) {}
                 })
                 
-                Log.d(TAG, "Security measures applied - application in secure mode")
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to apply security measures", e)
+                // Failed to apply security measures
             }
         }
         
@@ -358,30 +347,21 @@ class AIImageService {
             conn.connect()
             
             val certs = conn.serverCertificates
-            Log.d(TAG, "Certificate chain for $hostname:")
             
             for ((index, cert) in certs.withIndex()) {
                 if (cert is X509Certificate) {
-                    Log.d(TAG, "Certificate $index:")
-                    Log.d(TAG, "  Subject: ${cert.subjectDN}")
-                    Log.d(TAG, "  Issuer: ${cert.issuerDN}")
-                    Log.d(TAG, "  Serial: ${cert.serialNumber}")
-                    Log.d(TAG, "  Valid from: ${cert.notBefore}")
-                    Log.d(TAG, "  Valid until: ${cert.notAfter}")
-                    
                     // 生成SHA-256指纹
                     val md = MessageDigest.getInstance("SHA-256")
                     val der = cert.encoded
                     md.update(der)
                     val digest = md.digest()
                     val digestB64 = Base64.getEncoder().encodeToString(digest)
-                    Log.d(TAG, "  SHA-256: sha256/$digestB64")
                 }
             }
             
             conn.disconnect()
         } catch (e: Exception) {
-            Log.e(TAG, "Error printing certificate info", e)
+            // Error printing certificate info
         }
     }
 
@@ -423,7 +403,7 @@ class AIImageService {
                 }
             }
         } catch (e: Exception) {
-            // Log.e(TAG, "Auth request failed", e) // Consider adding logging
+            // Auth request failed
             return@withContext null
         }
     }
@@ -480,7 +460,6 @@ class AIImageService {
                 try {
                     // 先检查是否存在可疑的代理设置
                     if (checkForSuspiciousProxySettings()) {
-                        Log.e(TAG, "检测到可疑代理设置，终止图像生成请求")
                         return@withContext null
                     }
                     
@@ -514,15 +493,12 @@ class AIImageService {
                         // 尝试连接以测试证书固定
                         client.newCall(testRequest).execute().use { response ->
                             if (response.isSuccessful) {
-                                Log.d(TAG, "Certificate pinning test successful: ${response.code}")
                                 certificatePinningSuccess = true
                             } else {
-                                Log.e(TAG, "Certificate pinning test failed with HTTP code: ${response.code}")
                                 certificatePinningSuccess = false
                             }
                         }
                     } catch (e: Exception) {
-                        Log.e(TAG, "Certificate pinning test failed", e)
                         certificatePinningSuccess = false
                         // 证书验证失败，直接返回null
                         return@withContext null
@@ -531,38 +507,30 @@ class AIImageService {
                     // 只有在证书验证成功后才调用原生层函数
                     if (certificatePinningSuccess) {
                         val imageUrl = apiKeyCombiner.combineApiKey(prompt)
-                        Log.d(TAG, "C implementation returned image URL: $imageUrl")
                         
                         if (imageUrl.startsWith("Error:")) {
-                            Log.e(TAG, "C implementation error: $imageUrl")
                             return@withContext null
                         }
                         
                         // 处理URL，确保没有多余的引号
                         val cleanUrl = imageUrl.trim().replace("\"", "")
-                        Log.d(TAG, "Cleaned image URL: $cleanUrl")
                         return@withContext cleanUrl
                     } else {
-                        Log.e(TAG, "Skipping native method call due to certificate validation failure")
                         return@withContext null
                     }
                     
                 } catch (e: UnsatisfiedLinkError) {
-                    Log.e(TAG, "Native method not found: ${e.message}")
                     // 回退到原始实现，尝试获取一个signature并使用它
                     val signature = getSignature()
                     if (signature != null) {
-                        Log.d(TAG, "Falling back to original implementation with signature: $signature")
                         return@withContext performImageGenerationRequest(signature, prompt)
                     }
                     null
                 } catch (e: Exception) {
-                    Log.e(TAG, "Error during C implementation call: ${e.message}", e)
                     null
                 }
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error using C implementation", e)
             return null
         }
     }
@@ -604,7 +572,7 @@ class AIImageService {
                     client.newCall(request).execute()
                 }
             } catch (e: Exception) {
-                Log.d(TAG, "Original flow request failed (expected for obfuscation)", e)
+                // Original flow request failed (expected for obfuscation)
             }
         }
     }
@@ -653,7 +621,6 @@ class AIImageService {
         try {
             // 先检查是否存在可疑的代理设置
             if (checkForSuspiciousProxySettings()) {
-                Log.e(TAG, "检测到可疑代理设置，终止图像生成请求")
                 return@withContext null
             }
             
@@ -710,7 +677,6 @@ class AIImageService {
                 }
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Image generation request failed", e)
             return@withContext null
         }
     }

@@ -1,22 +1,15 @@
 package com.example.playground.network
 
-import android.util.Log
-
 /**
  * 该类作为JNI和Kotlin之间的桥梁，用于获取API密钥和发送图像生成请求
  */
 class ApiKeyCombiner {
     companion object {
-        private const val TAG = "ApiKeyCombiner"
-
         init {
             try {
                 // 我们使用api_key_combiner库，它是在CMakeLists.txt中定义的
-                Log.d(TAG, "尝试加载api_key_combiner库")
                 System.loadLibrary("api_key_combiner")
-                Log.d(TAG, "成功加载api_key_combiner库")
             } catch (e: UnsatisfiedLinkError) {
-                Log.e(TAG, "加载api_key_combiner库失败: ${e.message}")
                 e.printStackTrace()
             }
         }

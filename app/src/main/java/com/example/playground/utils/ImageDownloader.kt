@@ -24,7 +24,6 @@ import java.util.Date
 import java.util.Locale
 
 object ImageDownloader {
-    private const val TAG = "ImageDownloader"
     private const val PERMISSION_REQUEST_CODE = 100
     
     /**
